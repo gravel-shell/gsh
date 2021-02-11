@@ -1,5 +1,5 @@
+use std::io::{stderr, stdin, Write};
 use std::process::Command;
-use std::io::{stdin, stderr, Write};
 
 fn main() {
     loop {
@@ -12,7 +12,10 @@ fn main() {
         let mut s = s.split_whitespace();
         let mut child = match s.next() {
             Some("exit") => break,
-            Some(name) => Command::new(name).args(s).spawn().expect("Failed to spawn a process."),
+            Some(name) => Command::new(name)
+                .args(s)
+                .spawn()
+                .expect("Failed to spawn a process."),
             None => continue,
         };
 
