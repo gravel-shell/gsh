@@ -3,6 +3,7 @@ use std::fmt;
 use std::process::Command;
 use std::sync::{Arc, Mutex};
 
+use anyhow::Context;
 use nix::libc::{self, siginfo_t, waitid, P_PID};
 use nix::sys::signal::{kill, Signal};
 use nix::sys::wait::WaitPidFlag;
@@ -26,7 +27,7 @@ impl fmt::Display for Status {
     }
 }
 
-fn safe_waitid(pid: Pid, flag: WaitPidFlag) -> nix::Result<Status> {
+fn safe_waitid(pid: Pid, flag: WaitPidFlag) -> anyhow::Result<Status> {
     let (code, status, is_error) = unsafe {
         let mut siginfo = std::mem::zeroed();
         let error = waitid(P_PID, pid.as_raw() as u32, &mut siginfo, flag.bits());
@@ -39,24 +40,23 @@ fn safe_waitid(pid: Pid, flag: WaitPidFlag) -> nix::Result<Status> {
     };
 
     if is_error {
-        return Err(nix::Error::Sys(nix::errno::Errno::last()));
+        Err(nix::Error::Sys(nix::errno::Errno::last())).context("Failed to wait the process.")?;
     }
 
     Ok(match code {
         libc::CLD_EXITED => Status::Exited(status),
-        _ => Status::Signaled(Signal::try_from(status).expect("Unnexpected signal.")),
+        _ => Status::Signaled(Signal::try_from(status).context("Unnexpected signal.")?),
     })
 }
 
-fn main() {
-    let mut signals =
-        Signals::new(&[signal::SIGINT, signal::SIGTSTP]).expect("Failed to set signals.");
-    let child_id: Arc<Mutex<Option<i32>>> = Arc::new(Mutex::new(None));
+fn sighook(child_id: &Arc<Mutex<Option<i32>>>) -> anyhow::Result<()> {
+    let mut signals = Signals::new(&[signal::SIGINT, signal::SIGTSTP])
+        .context("Failed to initialize signals.")?;
 
-    let child_signal = Arc::clone(&child_id);
+    let child_id = Arc::clone(&child_id);
     thread::spawn(move || {
         for sig in signals.forever() {
-            let child = child_signal.lock().expect("Failed to get the child id.");
+            let child = child_id.lock().expect("Failed to get the child id.");
             if let Some(id) = *child {
                 match sig {
                     signal::SIGINT => {
@@ -74,6 +74,28 @@ fn main() {
             }
         }
     });
+    Ok(())
+}
+
+fn fg(args: Vec<&str>) -> anyhow::Result<i32> {
+    if args.len() != 1 {
+        anyhow::bail!("Unexpected args number.");
+    }
+
+    let id = args[0].parse::<i32>().context(format!("Invalid process id: {}", args[0]))?;
+    kill(Pid::from_raw(id), Signal::SIGCONT).context(format!("Failed to restart the process: {}", id))?;
+
+    Ok(id)
+}
+
+fn cmd(name: &str, args: Vec<&str>) -> anyhow::Result<i32> {
+    let child = Command::new(name).args(args).spawn().context(format!("Invalid command: {}", name))?;
+    Ok(child.id() as i32)
+}
+
+fn inner_main() -> anyhow::Result<()> {
+    let child_id: Arc<Mutex<Option<i32>>> = Arc::new(Mutex::new(None));
+    sighook(&child_id)?;
 
     let mut readline = Editor::<()>::new();
 
@@ -92,38 +114,20 @@ fn main() {
 
         let id = match line.next() {
             Some("exit") => break,
-            Some("fg") => {
-                let id = match line.next() {
-                    Some(s) => s,
-                    None => {
-                        eprintln!("\"fg\" requires an process id.");
-                        continue;
-                    }
-                };
-                let id = match id.parse::<i32>() {
-                    Ok(i) => i,
-                    Err(_) => {
-                        eprintln!("Invalid process id: {}", id);
-                        continue;
-                    }
-                };
-                match kill(Pid::from_raw(id), Signal::SIGCONT) {
-                    Ok(_) => {}
-                    Err(_) => {
-                        eprintln!("Failed to continue the process: {}", id);
-                        continue;
-                    }
-                };
-                id
-            }
-            Some(name) => match Command::new(name).args(line).spawn() {
-                Ok(child) => child,
-                Err(_) => {
-                    eprintln!("Invalid command: {}", name);
-                    continue;
+            Some("fg") => match fg(line.collect()) {
+                Ok(id) => id,
+                Err(e) => {
+                    eprintln!("{}", e);
+                    continue
                 }
             }
-            .id() as i32,
+            Some(name) => match cmd(name, line.collect()) {
+                Ok(id) => id,
+                Err(e) => {
+                    eprintln!("{}", e);
+                    continue
+                }
+            }
             None => continue,
         };
 
@@ -133,11 +137,17 @@ fn main() {
             "{}",
             safe_waitid(
                 Pid::from_raw(id),
-                WaitPidFlag::WEXITED | WaitPidFlag::WSTOPPED,
-            )
-            .expect("Failed to wait the process")
+                WaitPidFlag::WEXITED | WaitPidFlag::WSTOPPED
+            )?
         );
 
         *Arc::clone(&child_id).lock().expect("Failed to get child.") = None;
     }
+    Ok(())
+}
+
+fn main() {
+    inner_main().unwrap_or_else(|e| {
+        eprintln!("{}", e);
+    })
 }
