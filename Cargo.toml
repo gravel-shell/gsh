@@ -17,4 +17,7 @@ include = [
 ]
 
 [dependencies]
+crossterm = "0.19"
 rustyline = "7.1"
+signal-hook = "0.3"
+nix = "0.19"
