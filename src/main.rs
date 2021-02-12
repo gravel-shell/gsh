@@ -1,23 +1,28 @@
-use std::io::{stderr, stdin, Write};
 use std::process::Command;
 
+use rustyline::{Editor, error::ReadlineError};
+
 fn main() {
+    let mut readline = Editor::<()>::new();
+
     loop {
-        eprint!("$ ");
-        stderr().flush().expect("Failed to flush stderr.");
-
-        let mut s = String::new();
-        stdin().read_line(&mut s).expect("Failed to read stdin");
-
-        let mut s = s.split_whitespace();
-        let mut child = match s.next() {
-            Some("exit") => break,
-            Some(name) => Command::new(name)
-                .args(s)
-                .spawn()
-                .expect("Failed to spawn a process."),
-            None => continue,
+        let line = match readline.readline("$ ") {
+            Ok(s) => s,
+            Err(ReadlineError::Interrupted) => continue,
+            Err(ReadlineError::Eof) => break,
+            Err(e) => Err(e).expect("Failed to read line."),
         };
+
+        let mut line = line.split_whitespace();
+
+        let mut child = match line.next() {
+                Some("exit") => break,
+                Some(name) => Command::new(name)
+                    .args(line)
+                    .spawn()
+                    .expect("Failed to spawn a process."),
+                None => continue,
+            };
 
         child.wait().expect("Command wasn't running.");
     }

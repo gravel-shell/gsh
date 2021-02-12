@@ -17,3 +17,4 @@ include = [
 ]
 
 [dependencies]
+rustyline = "7.1"
