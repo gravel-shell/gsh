@@ -1,18 +1,42 @@
+use std::convert::TryFrom;
+use std::fmt;
 use std::process::Command;
 use std::sync::{Arc, Mutex};
 
-use signal_hook::{iterator::Signals, consts::signal};
+use nix::libc::{self, siginfo_t, waitid, P_PID};
 use nix::sys::signal::{kill, Signal};
 use nix::sys::wait::WaitPidFlag;
-use nix::libc::{waitid, P_PID};
 use nix::unistd::Pid;
 use rustyline::{error::ReadlineError, Editor};
+use signal_hook::{consts::signal, iterator::Signals};
 use std::thread;
 
-fn safe_waitid(pid: Pid, flag: WaitPidFlag) {
-    unsafe {
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
+enum Status {
+    Exited(i32),
+    Signaled(Signal),
+}
+
+impl fmt::Display for Status {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Status::Exited(c) => write!(f, "exited: {}", c),
+            Status::Signaled(s) => write!(f, "signaled: {}", s),
+        }
+    }
+}
+
+fn safe_waitid(pid: Pid, flag: WaitPidFlag) -> Status {
+    let (code, status) = unsafe {
         let mut siginfo = std::mem::zeroed();
         waitid(P_PID, pid.as_raw() as u32, &mut siginfo, flag.bits());
+        let siginfo = siginfo as siginfo_t;
+        (siginfo.si_code as i32, siginfo.si_status() as i32)
+    };
+
+    match code {
+        libc::CLD_EXITED => Status::Exited(status),
+        _ => Status::Signaled(Signal::try_from(status).unwrap()),
     }
 }
 
@@ -36,7 +60,6 @@ fn main() {
                     }
                     _ => unreachable!(),
                 }
-
             }
         }
     });
@@ -70,7 +93,10 @@ fn main() {
 
         *Arc::clone(&child_id).lock().unwrap() = Some(id);
 
-        safe_waitid(Pid::from_raw(id), WaitPidFlag::WEXITED | WaitPidFlag::WSTOPPED);
+        println!("{}", safe_waitid(
+            Pid::from_raw(id),
+            WaitPidFlag::WEXITED | WaitPidFlag::WSTOPPED,
+        ));
 
         *Arc::clone(&child_id).lock().unwrap() = None;
     }
