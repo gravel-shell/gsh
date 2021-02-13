@@ -1,5 +1,4 @@
 extern crate anyhow;
-extern crate nix;
 extern crate rustyline;
 
 mod raw;
@@ -9,29 +8,72 @@ use std::process::Command;
 use std::sync::{Arc, Mutex};
 
 use anyhow::Context;
-use nix::sys::signal::{kill, Signal};
-use nix::sys::wait::WaitPidFlag;
-use nix::unistd::Pid;
 use rustyline::{error::ReadlineError, Editor};
 
-fn fg(args: Vec<&str>) -> anyhow::Result<i32> {
+use raw::Pid;
+
+#[derive(Debug)]
+pub struct CurPid(Arc<Mutex<Option<Pid>>>);
+
+impl CurPid {
+    fn new() -> Self {
+        Self(Arc::new(Mutex::new(None)))
+    }
+
+    fn clone(&self) -> Self {
+        Self(Arc::clone(&self.0))
+    }
+
+    fn get(&self) -> anyhow::Result<Option<Pid>> {
+        let lock = match self.0.lock() {
+            Ok(l) => l,
+            Err(e) => anyhow::bail!("Failed to get the lock: {}", e),
+        };
+
+        Ok(*lock)
+    }
+
+    fn store(&self, pid: Pid) -> anyhow::Result<()> {
+        let cloned = Arc::clone(&self.0);
+        let mut lock = match cloned.lock() {
+            Ok(l) => l,
+            Err(e) => anyhow::bail!("Failed to get the lock: {}", e),
+        };
+
+        *lock = Some(pid);
+        Ok(())
+    }
+
+    fn reset(&self) -> anyhow::Result<()> {
+        let cloned = Arc::clone(&self.0);
+        let mut lock = match cloned.lock() {
+            Ok(l) => l,
+            Err(e) => anyhow::bail!("Failed to get the lock: {}", e),
+        };
+
+        *lock = None;
+        Ok(())
+    }
+}
+
+fn fg(args: Vec<&str>) -> anyhow::Result<Pid> {
     if args.len() != 1 {
         anyhow::bail!("Unexpected args number.");
     }
 
-    let id = args[0].parse::<i32>().context(format!("Invalid process id: {}", args[0]))?;
-    kill(Pid::from_raw(id), Signal::SIGCONT).context(format!("Failed to restart the process: {}", id))?;
+    let id = args[0].parse::<Pid>().context(format!("Invalid process id: {}", args[0]))?;
+    id.restart()?;
 
     Ok(id)
 }
 
-fn cmd(name: &str, args: Vec<&str>) -> anyhow::Result<i32> {
+fn cmd(name: &str, args: Vec<&str>) -> anyhow::Result<Pid> {
     let child = Command::new(name).args(args).spawn().context(format!("Invalid command: {}", name))?;
-    Ok(child.id() as i32)
+    Ok((child.id() as i32).into())
 }
 
 fn inner_main() -> anyhow::Result<()> {
-    let child_id: Arc<Mutex<Option<i32>>> = Arc::new(Mutex::new(None));
+    let child_id = CurPid::new();
     sighook::sighook(&child_id)?;
 
     let mut readline = Editor::<()>::new();
@@ -68,17 +110,14 @@ fn inner_main() -> anyhow::Result<()> {
             None => continue,
         };
 
-        *Arc::clone(&child_id).lock().expect("Failed to get child.") = Some(id);
+        child_id.store(id)?;
 
         eprintln!(
             "{}",
-            raw::waitid(
-                Pid::from_raw(id),
-                WaitPidFlag::WEXITED | WaitPidFlag::WSTOPPED
-            )?
+            id.wait()?
         );
 
-        *Arc::clone(&child_id).lock().expect("Failed to get child.") = None;
+        child_id.reset()?;
     }
     Ok(())
 }
