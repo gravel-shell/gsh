@@ -1,8 +1,9 @@
 extern crate anyhow;
 
 mod job;
-mod session;
 mod prompt;
+mod session;
+mod shell;
 
 fn inner_main() -> anyhow::Result<()> {
     let mut session = session::Session::<prompt::PromptReader>::new()?;

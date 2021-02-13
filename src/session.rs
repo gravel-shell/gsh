@@ -1,6 +1,5 @@
-use std::process::Command;
-use anyhow::Context;
-use crate::job::{Pid, CurPid};
+use crate::job::CurPid;
+use crate::shell::Cmd;
 
 pub struct Session<T> {
     reader: T,
@@ -10,27 +9,6 @@ pub struct Session<T> {
 pub trait Reader: Sized {
     fn init(cur_pid: &CurPid) -> anyhow::Result<Self>;
     fn next_line(&mut self) -> anyhow::Result<String>;
-}
-
-fn fg(args: Vec<&str>) -> anyhow::Result<Pid> {
-    if args.len() != 1 {
-        anyhow::bail!("Unexpected args number.");
-    }
-
-    let id = args[0]
-        .parse::<Pid>()
-        .context(format!("Invalid process id: {}", args[0]))?;
-    id.restart()?;
-
-    Ok(id)
-}
-
-fn cmd(name: &str, args: Vec<&str>) -> anyhow::Result<Pid> {
-    let child = Command::new(name)
-        .args(args)
-        .spawn()
-        .context(format!("Invalid command: {}", name))?;
-    Ok((child.id() as i32).into())
 }
 
 impl<T: Reader> Session<T> {
@@ -55,27 +33,19 @@ impl<T: Reader> Session<T> {
 
         let id = match line.next() {
             Some("exit") => return Ok(false),
-            Some("fg") => match fg(line.collect()) {
-                Ok(id) => id,
+            Some(s) => match Cmd::new(s).exec(line.collect()) {
+                Ok(Some(id)) => id,
+                Ok(None) => return Ok(true),
                 Err(e) => {
                     eprintln!("{}", e);
                     return Ok(true);
                 }
-            },
-            Some(name) => match cmd(name, line.collect()) {
-                Ok(id) => id,
-                Err(e) => {
-                    eprintln!("{}", e);
-                    return Ok(true);
-                }
-            },
+            }
             None => return Ok(true),
         };
 
         self.cur_pid.store(id)?;
-
-        eprintln!("{}", id.wait()?);
-
+        id.wait()?;
         self.cur_pid.reset()?;
 
         Ok(true)
@@ -83,9 +53,7 @@ impl<T: Reader> Session<T> {
 
     pub fn all(&mut self) -> anyhow::Result<()> {
         loop {
-            if self.next()? {
-                continue
-            } else {
+            if !self.next()? {
                 break
             }
         }

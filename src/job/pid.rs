@@ -64,7 +64,6 @@ impl Pid {
         Ok(Status::Signaled(Signal::SIGCONT))
     }
 
-
     pub fn wait(&self) -> anyhow::Result<Status> {
         let (code, status, is_error) = unsafe {
             let mut siginfo = std::mem::zeroed();
