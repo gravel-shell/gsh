@@ -1,11 +1,11 @@
+use crate::job::Pid;
 use anyhow::Context;
 use std::process::Command;
-use crate::job::Pid;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Cmd {
     Fg,
-    Cmd(String)
+    Cmd(String),
 }
 
 impl Cmd {
@@ -26,7 +26,7 @@ impl Cmd {
                 let id = args[0]
                     .parse::<Pid>()
                     .context(format!("Invalid process id: {}", args[0]))?;
-                    id.restart()?;
+                id.restart()?;
 
                 Some(id)
             }

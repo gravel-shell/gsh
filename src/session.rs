@@ -40,7 +40,7 @@ impl<T: Reader> Session<T> {
                     eprintln!("{}", e);
                     return Ok(true);
                 }
-            }
+            },
             None => return Ok(true),
         };
 
@@ -54,7 +54,7 @@ impl<T: Reader> Session<T> {
     pub fn all(&mut self) -> anyhow::Result<()> {
         loop {
             if !self.next()? {
-                break
+                break;
             }
         }
 

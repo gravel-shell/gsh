@@ -1,13 +1,13 @@
 extern crate rustyline;
 extern crate signal_hook;
 
+use crate::job::CurPid;
+use crate::session::Reader;
 use anyhow::Context;
+use rustyline::{error::ReadlineError, Editor};
 use signal_hook::consts::signal;
 use signal_hook::iterator::Signals;
-use rustyline::{error::ReadlineError, Editor};
 use std::thread;
-use crate::session::Reader;
-use crate::job::CurPid;
 
 #[derive(Debug)]
 pub struct PromptReader(Editor<()>);

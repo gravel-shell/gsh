@@ -1,5 +1,5 @@
-use std::fmt;
 use super::Signal;
+use std::fmt;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum Status {
