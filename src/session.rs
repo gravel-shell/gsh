@@ -1,5 +1,6 @@
 use crate::job::CurPid;
-use crate::shell::Cmd;
+use crate::cmd::Cmd;
+use crate::parse::AstCmd;
 
 pub struct Session<T> {
     reader: T,
@@ -29,11 +30,18 @@ impl<T: Reader> Session<T> {
             }
         };
 
-        let mut line = line.split_whitespace();
+        let cmd = match AstCmd::parse(line) {
+            Ok(Some(res)) => res,
+            Ok(None) => return Ok(true),
+            Err(e) => {
+                eprintln!("Parse Error: {}", e);
+                return Ok(true);
+            }
+        };
 
-        let id = match line.next() {
-            Some("exit") => return Ok(false),
-            Some(s) => match Cmd::new(s).exec(line.collect()) {
+        let id = match cmd.name.as_str() {
+            "exit" => return Ok(false),
+            s => match Cmd::new(s).exec(cmd.args) {
                 Ok(Some(id)) => id,
                 Ok(None) => return Ok(true),
                 Err(e) => {
@@ -41,7 +49,6 @@ impl<T: Reader> Session<T> {
                     return Ok(true);
                 }
             },
-            None => return Ok(true),
         };
 
         self.cur_pid.store(id)?;

@@ -18,12 +18,12 @@ impl Cmd {
         }
     }
 
-    pub fn exec(&self, args: Vec<&str>) -> anyhow::Result<Option<Pid>> {
+    pub fn exec<T: AsRef<str>>(&self, args: Vec<T>) -> anyhow::Result<Option<Pid>> {
         Ok(match self {
             Self::Cd => {
                 let path = match args.len() {
                     0 => std::env::var("HOME").context("Failed to get the home directory.")?,
-                    1 => String::from(args[0]),
+                    1 => String::from(args[0].as_ref()),
                     _ => anyhow::bail!("Unexpected args number."),
                 };
 
@@ -36,16 +36,18 @@ impl Cmd {
                     anyhow::bail!("Unexpected args number.");
                 }
 
-                let id = args[0]
+                let id = args[0].as_ref();
+
+                let id = id
                     .parse::<Pid>()
-                    .context(format!("Invalid process id: {}", args[0]))?;
+                    .context(format!("Invalid process id: {}", id))?;
                 id.restart()?;
 
                 Some(id)
             }
             Self::Cmd(name) => {
                 let child = Command::new(name)
-                    .args(args)
+                    .args(args.iter().map(|s| s.as_ref()))
                     .spawn()
                     .context(format!("Invalid command: {}", name))?;
                 Some((child.id() as i32).into())
