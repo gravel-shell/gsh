@@ -1,13 +1,12 @@
-extern crate rustyline;
-
 mod sighook;
+mod readline;
 
 use std::process::Command;
 
 use anyhow::Context;
-use rustyline::{error::ReadlineError, Editor};
 
 use crate::jobs::{CurPid, Pid};
+use readline::Reader;
 
 fn fg(args: Vec<&str>) -> anyhow::Result<Pid> {
     if args.len() != 1 {
@@ -34,16 +33,14 @@ pub fn prompt() -> anyhow::Result<()> {
     let child_id = CurPid::new();
     sighook::sighook(&child_id)?;
 
-    let mut readline = Editor::<()>::new();
+    let mut readline = Reader::new();
 
     loop {
-        let line = match readline.readline("$ ") {
+        let line = match readline.read() {
             Ok(s) => s,
-            Err(ReadlineError::Interrupted) => continue,
-            Err(ReadlineError::Eof) => break,
             Err(e) => {
-                eprintln!("Failed to read line: {}", e);
-                continue;
+                eprintln!("Readline Error: {}", e);
+                continue
             }
         };
 

@@ -1,3 +1,6 @@
+use std::fmt;
+use super::Signal;
+
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum Status {
     Exited(i32),

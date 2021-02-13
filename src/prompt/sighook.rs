@@ -6,7 +6,7 @@ use anyhow::Context;
 use signal_hook::consts::signal;
 use signal_hook::iterator::Signals;
 
-use crate::CurPid;
+use crate::jobs::CurPid;
 
 pub fn sighook(child_id: &CurPid) -> anyhow::Result<()> {
     let mut signals = Signals::new(&[signal::SIGINT, signal::SIGTSTP])

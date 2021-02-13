@@ -1,6 +1,4 @@
 //! Raw API bindings.
-extern crate nix;
-
 use anyhow::Context;
 use nix::libc;
 use nix::sys::signal::kill;
@@ -8,7 +6,7 @@ use nix::unistd::Pid as NixPid;
 use std::convert::TryFrom;
 use std::fmt;
 
-pub use nix::sys::signal::Signal;
+use super::{Signal, Status};
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub struct Pid(i32);

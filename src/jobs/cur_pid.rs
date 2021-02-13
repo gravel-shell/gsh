@@ -1,6 +1,6 @@
 use std::sync::{Arc, Mutex};
 
-use crate::jobs::Pid;
+use super::Pid;
 
 #[derive(Debug)]
 pub struct CurPid(Arc<Mutex<Option<Pid>>>);
