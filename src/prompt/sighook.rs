@@ -19,12 +19,12 @@ pub fn sighook(child_id: &CurPid) -> anyhow::Result<()> {
             if let Some(id) = child {
                 match sig {
                     signal::SIGINT => {
-                        println!("\nInterrupt");
                         id.interrupt().unwrap();
+                        println!("\nInterrupt");
                     }
                     signal::SIGTSTP => {
-                        println!("\nSuspend: {}", id);
                         id.suspend().unwrap();
+                        println!("\nSuspend: {}", id);
                     }
                     _ => unreachable!(),
                 }
