@@ -1,14 +1,34 @@
+extern crate rustyline;
 extern crate signal_hook;
-
-use std::thread;
 
 use anyhow::Context;
 use signal_hook::consts::signal;
 use signal_hook::iterator::Signals;
+use rustyline::{error::ReadlineError, Editor};
+use std::thread;
+use crate::session::Reader;
+use crate::job::CurPid;
 
-use crate::jobs::CurPid;
+#[derive(Debug)]
+pub struct PromptReader(Editor<()>);
 
-pub fn sighook(child_id: &CurPid) -> anyhow::Result<()> {
+impl Reader for PromptReader {
+    fn init(cur_pid: &CurPid) -> anyhow::Result<Self> {
+        sighook(cur_pid)?;
+        Ok(Self(Editor::<()>::new()))
+    }
+
+    fn next_line(&mut self) -> anyhow::Result<String> {
+        match self.0.readline("$ ") {
+            Ok(s) => Ok(s),
+            Err(ReadlineError::Interrupted) => Ok(String::new()),
+            Err(ReadlineError::Eof) => Ok(String::from("exit")),
+            Err(e) => Err(e)?,
+        }
+    }
+}
+
+fn sighook(child_id: &CurPid) -> anyhow::Result<()> {
     let mut signals = Signals::new(&[signal::SIGINT, signal::SIGTSTP])
         .context("Failed to initialize signals.")?;
 
