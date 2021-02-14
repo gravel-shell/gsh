@@ -4,7 +4,7 @@ extern crate either;
 use super::{Cmd, CmdKind, Job, Redirect};
 use anyhow::Context;
 use combine::parser::char::spaces;
-use combine::{attempt, many1, optional, satisfy, sep_end_by, token};
+use combine::{attempt, many1, optional, satisfy, sep_end_by, one_of};
 use combine::{Parser, Stream};
 use either::Either;
 
@@ -40,10 +40,14 @@ fn kind<I: Stream<Token = char>>() -> impl Parser<I, Output = CmdKind> {
 }
 
 fn redirect<I: Stream<Token = char>>() -> impl Parser<I, Output = Redirect> {
-    token('>')
+    one_of("<>".chars())
         .skip(spaces())
-        .with(string())
-        .map(|to| Redirect { to })
+        .and(string())
+        .map(|(io, file)| match io {
+            '<' => Redirect::Stdin(file),
+            '>' => Redirect::Stdout(file),
+            _ => unreachable!(),
+        })
 }
 
 fn arg_or_red<I: Stream<Token = char>>() -> impl Parser<I, Output = Either<String, Redirect>> {

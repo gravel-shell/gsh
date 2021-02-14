@@ -76,11 +76,12 @@ impl Cmd {
                 let mut child = Command::new(name);
                 child.args(args);
 
-                match output.stdout {
-                    Some(_) => {
-                        child.stdout(Stdio::piped());
-                    }
-                    None => {}
+                if output.stdin.is_some() {
+                    child.stdin(Stdio::piped());
+                }
+
+                if output.stdout.is_some() {
+                    child.stdout(Stdio::piped());
                 }
 
                 let child = child
@@ -89,15 +90,20 @@ impl Cmd {
 
                 let id = Pid::from(child.id() as i32);
 
-                match output.stdout {
-                    Some(s) => {
-                        std::io::copy(
-                            &mut child.stdout.unwrap(),
-                            &mut std::fs::File::create(s).context("Failed to open the file")?,
-                        )
-                        .context("Failed to redirect")?;
-                    }
-                    None => {}
+                if let Some(s) = output.stdin {
+                    std::io::copy(
+                        &mut std::fs::File::open(s).context("Failed to open the file")?,
+                        &mut child.stdin.unwrap(),
+                    )
+                    .context("Failed to redirect")?;
+                }
+
+                if let Some(s) = output.stdout {
+                    std::io::copy(
+                        &mut child.stdout.unwrap(),
+                        &mut std::fs::File::create(s).context("Failed to open the file")?,
+                    )
+                    .context("Failed to redirect")?;
                 }
 
                 Some(id)
@@ -126,12 +132,14 @@ impl CmdKind {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Redirect {
-    to: String,
+pub enum Redirect {
+    Stdin(String),
+    Stdout(String),
 }
 
 #[derive(Default, Debug, Clone, PartialEq, Eq)]
 pub struct Output {
+    stdin: Option<String>,
     stdout: Option<String>,
 }
 
@@ -139,7 +147,10 @@ impl Output {
     fn from(reds: Vec<Redirect>) -> Self {
         let mut res = Self::default();
         reds.into_iter().fold(&mut res, |acc, red| {
-            acc.stdout = Some(red.to);
+            match red {
+                Redirect::Stdin(s) => acc.stdin = Some(s),
+                Redirect::Stdout(s) => acc.stdout = Some(s),
+            }
             acc
         });
         res
