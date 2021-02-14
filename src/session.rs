@@ -1,5 +1,5 @@
 use crate::job::CurPid;
-use crate::shell::Job;
+use crate::shell::Cmd;
 
 pub struct Session<T> {
     reader: T,
@@ -29,17 +29,17 @@ impl<T: Reader> Session<T> {
             }
         };
 
-        let job = match Job::parse(line) {
-            Ok(job) => job,
+        let cmd = match Cmd::parse(line) {
+            Ok(cmd) => cmd,
             Err(e) => {
                 eprintln!("Parse Error: {}", e);
                 return Ok(true);
             }
         };
 
-        eprintln!("Parsed: {:?}", job);
+        eprintln!("Parsed: {:?}", cmd);
 
-        let id = match job.exec() {
+        let id = match cmd.exec() {
             Ok(Some(id)) => id,
             Ok(None) => return Ok(true),
             Err(e) => {
