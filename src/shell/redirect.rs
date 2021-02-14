@@ -11,6 +11,7 @@ pub struct Redirect {
 pub enum RedKind {
     Stdin,
     Stdout(RedOutMode),
+    Stderr(RedOutMode),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -50,7 +51,7 @@ impl RedOut {
         }
     }
 
-    pub fn _stderr() -> Self {
+    pub fn stderr() -> Self {
         Self {
             kind: RedOutKind::Stderr,
             mode: RedOutMode::Overwrite,
@@ -172,16 +173,15 @@ impl io::Read for RedInReader {
 pub struct Output {
     pub stdin: RedIn,
     pub stdout: RedOut,
+    pub stderr: RedOut,
 }
 
 impl Output {
     pub fn from<T: IntoIterator<Item = Redirect>>(reds: T) -> anyhow::Result<Self> {
         let res = Self {
             stdin: RedIn::Stdin,
-            stdout: RedOut {
-                kind: RedOutKind::Stdout,
-                mode: RedOutMode::Overwrite,
-            },
+            stdout: RedOut::stdout(),
+            stderr: RedOut::stderr(),
         };
         reds.into_iter()
             .fold(Ok(res), |acc: anyhow::Result<_>, red| {
@@ -189,6 +189,7 @@ impl Output {
                 match red.kind {
                     RedKind::Stdin => res.stdin = RedIn::from_file(red.file)?,
                     RedKind::Stdout(m) => res.stdout = RedOut::from_file(red.file, m)?,
+                    RedKind::Stderr(m) => res.stderr = RedOut::from_file(red.file, m)?,
                 }
                 Ok(res)
             })

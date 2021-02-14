@@ -51,6 +51,10 @@ pub fn cmd(name: &str, args: Vec<String>, output: Output) -> anyhow::Result<Pid>
         child.stdout(Stdio::piped());
     }
 
+    if output.stderr != super::RedOut::stderr() {
+        child.stderr(Stdio::piped());
+    }
+
     let child = child
         .spawn()
         .context(format!("Invalid command: {}", name))?;
@@ -73,5 +77,12 @@ pub fn cmd(name: &str, args: Vec<String>, output: Output) -> anyhow::Result<Pid>
         .context("Failed to redirect")?;
     }
 
+    if output.stderr != super::RedOut::stderr() {
+        std::io::copy(
+            &mut child.stderr.unwrap(),
+            &mut output.stderr.to_writer()?,
+        )
+        .context("Failed to redirect")?;
+    }
     Ok(id)
 }
