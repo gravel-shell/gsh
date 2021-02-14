@@ -1,34 +1,55 @@
 extern crate combine;
+extern crate either;
 
+use super::{Cmd, CmdKind, Job, Redirect};
 use anyhow::Context;
-use super::{Job, Cmd, CmdKind};
 use combine::parser::char::spaces;
-use combine::{many1, optional, satisfy, sep_by1};
+use combine::{attempt, many1, optional, satisfy, sep_end_by, token};
 use combine::{Parser, Stream};
+use either::Either;
 
 pub fn parse_line<T: AsRef<str>>(input: T) -> anyhow::Result<Job> {
     let (res, _) = job()
         .parse(input.as_ref())
-        .context("Failed to parse cmd.")?;
+        .context("Failed to parse line.")?;
     Ok(res)
 }
 
-fn job<Input>() -> impl Parser<Input, Output = Job>
-where
-    Input: Stream<Token = char>,
-{
-    optional(cmd()).map(|cmd| Job(cmd))
+fn job<I: Stream<Token = char>>() -> impl Parser<I, Output = Job> {
+    optional(cmd()).map(|cmd| Job { cmd })
 }
 
-fn cmd<Input>() -> impl Parser<Input, Output = Cmd>
-where
-    Input: Stream<Token = char>,
-{
-    sep_by1(many1(satisfy(|c: char| !c.is_whitespace())), spaces()).map(|s: Vec<String>| {
-        let mut s = s.into_iter();
-        Cmd {
-            kind: CmdKind::new(s.next().unwrap()),
-            args: s.collect(),
-        }
-    })
+fn cmd<I: Stream<Token = char>>() -> impl Parser<I, Output = Cmd> {
+    spaces()
+        .with((kind().skip(spaces()), sep_end_by(arg_or_red(), spaces())))
+        .map(|(kind, args_reds): (_, Vec<_>)| {
+            let (args, redirects): (Vec<_>, Vec<_>) =
+                args_reds.into_iter().partition(|e| e.is_left());
+            let args: Vec<_> = args.into_iter().map(|s| s.unwrap_left()).collect();
+            let redirects: Vec<_> = redirects.into_iter().map(|s| s.unwrap_right()).collect();
+            Cmd {
+                kind,
+                args,
+                redirects,
+            }
+        })
+}
+
+fn kind<I: Stream<Token = char>>() -> impl Parser<I, Output = CmdKind> {
+    string().map(|s| CmdKind::new(s))
+}
+
+fn redirect<I: Stream<Token = char>>() -> impl Parser<I, Output = Redirect> {
+    token('>')
+        .skip(spaces())
+        .with(string())
+        .map(|to| Redirect { to })
+}
+
+fn arg_or_red<I: Stream<Token = char>>() -> impl Parser<I, Output = Either<String, Redirect>> {
+    attempt(redirect().map(|r| Either::Right(r))).or(string().map(|s| Either::Left(s)))
+}
+
+fn string<I: Stream<Token = char>>() -> impl Parser<I, Output = String> {
+    many1(satisfy(|c: char| !c.is_whitespace()))
 }
