@@ -1,10 +1,11 @@
 extern crate combine;
 extern crate either;
 
-use super::{Cmd, CmdKind, Redirect};
+use super::redirect::{RedFile, RedKind, RedOutMode, Redirect};
+use super::{Cmd, CmdKind};
 use anyhow::Context;
 use combine::parser::char::spaces;
-use combine::{attempt, eof, many1, one_of, satisfy, sep_end_by};
+use combine::{attempt, eof, many1, one_of, satisfy, sep_end_by, token, value};
 use combine::{Parser, Stream};
 use either::Either;
 
@@ -37,19 +38,40 @@ fn kind<I: Stream<Token = char>>() -> impl Parser<I, Output = CmdKind> {
     string().map(|s| CmdKind::new(s))
 }
 
-fn redirect<I: Stream<Token = char>>() -> impl Parser<I, Output = Redirect> {
-    one_of("<>".chars())
-        .skip(spaces())
-        .and(string())
-        .map(|(io, file)| match io {
-            '<' => Redirect::Stdin(file),
-            '>' => Redirect::Stdout(file),
-            _ => unreachable!(),
-        })
-}
-
 fn arg_or_red<I: Stream<Token = char>>() -> impl Parser<I, Output = Either<String, Redirect>> {
     attempt(redirect().map(|r| Either::Right(r))).or(string().map(|s| Either::Left(s)))
+}
+
+fn redirect<I: Stream<Token = char>>() -> impl Parser<I, Output = Redirect> {
+    red_kind()
+        .skip(spaces())
+        .and(red_file())
+        .map(|(kind, file)| Redirect { kind, file })
+}
+
+fn red_file<I: Stream<Token = char>>() -> impl Parser<I, Output = RedFile> {
+    token('&')
+        .with(one_of("012!".chars()).map(|c| match c {
+            '0' => RedFile::Stdin,
+            '1' => RedFile::Stdout,
+            '2' => RedFile::Stderr,
+            '!' => RedFile::Null,
+            _ => unreachable!(),
+        }))
+        .or(string().map(|s| RedFile::File(s)))
+}
+
+fn red_kind<I: Stream<Token = char>>() -> impl Parser<I, Output = RedKind> {
+    one_of("<>".chars()).then(|c| {
+        if c == '<' {
+            value(RedKind::Stdin).left()
+        } else {
+            token('>')
+                .map(|_| RedKind::Stdout(RedOutMode::Append))
+                .or(value(RedKind::Stdout(RedOutMode::Overwrite)))
+                .right()
+        }
+    })
 }
 
 fn string<I: Stream<Token = char>>() -> impl Parser<I, Output = String> {

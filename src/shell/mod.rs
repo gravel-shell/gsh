@@ -2,7 +2,7 @@ mod builtin;
 mod parse;
 mod redirect;
 
-pub use redirect::{Output, Redirect};
+pub use redirect::{Output, Redirect, RedIn, RedOut};
 
 use parse::parse_line;
 
@@ -34,7 +34,7 @@ impl Cmd {
             args,
             redirects,
         } = self;
-        let output = Output::from(redirects);
+        let output = Output::from(redirects)?;
         Ok(match kind {
             CmdKind::Empty => None,
             CmdKind::Exit => {

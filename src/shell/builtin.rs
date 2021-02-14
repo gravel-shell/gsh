@@ -43,11 +43,11 @@ pub fn cmd(name: &str, args: Vec<String>, output: Output) -> anyhow::Result<Pid>
     let mut child = Command::new(name);
     child.args(args);
 
-    if output.stdin.is_some() {
+    if output.stdin != super::RedIn::Stdin {
         child.stdin(Stdio::piped());
     }
 
-    if output.stdout.is_some() {
+    if output.stdout != super::RedOut::stdout() {
         child.stdout(Stdio::piped());
     }
 
@@ -57,18 +57,18 @@ pub fn cmd(name: &str, args: Vec<String>, output: Output) -> anyhow::Result<Pid>
 
     let id = Pid::from(child.id() as i32);
 
-    if let Some(s) = output.stdin {
+    if output.stdin != super::RedIn::Stdin {
         std::io::copy(
-            &mut std::fs::File::open(s).context("Failed to open the file")?,
+            &mut output.stdin.to_reader()?,
             &mut child.stdin.unwrap(),
         )
         .context("Failed to redirect")?;
     }
 
-    if let Some(s) = output.stdout {
+    if output.stdout != super::RedOut::stdout() {
         std::io::copy(
             &mut child.stdout.unwrap(),
-            &mut std::fs::File::create(s).context("Failed to open the file")?,
+            &mut output.stdout.to_writer()?,
         )
         .context("Failed to redirect")?;
     }
