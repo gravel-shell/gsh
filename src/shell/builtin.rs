@@ -39,6 +39,8 @@ pub fn fg(args: Vec<String>) -> anyhow::Result<Pid> {
 }
 
 pub fn cmd(name: &str, args: Vec<String>, output: Output) -> anyhow::Result<Pid> {
+    use super::redirect::*;
+    use std::io::copy;
     use std::process::{Command, Stdio};
     let mut child = Command::new(name);
     child.args(args);
@@ -61,19 +63,41 @@ pub fn cmd(name: &str, args: Vec<String>, output: Output) -> anyhow::Result<Pid>
 
     let id = Pid::from(child.id() as i32);
 
-    if output.stdin != super::RedIn::Stdin {
-        std::io::copy(&mut output.stdin.to_reader()?, &mut child.stdin.unwrap())
+    let Output {
+        stdin,
+        stdout,
+        stderr,
+    } = output;
+
+    if stdin != RedIn::Stdin {
+        std::io::copy(&mut stdin.to_reader()?, &mut child.stdin.unwrap())
             .context("Failed to redirect")?;
     }
 
-    if output.stdout != super::RedOut::stdout() {
-        std::io::copy(&mut child.stdout.unwrap(), &mut output.stdout.to_writer()?)
-            .context("Failed to redirect")?;
-    }
+    match (stdout.kind.clone(), stderr.kind.clone()) {
+        (RedOutKind::Stdout, RedOutKind::Stderr) => {}
+        (RedOutKind::Stdout, _) => {
+            copy(&mut child.stderr.unwrap(), &mut stderr.to_writer()?)
+                .context("Failed to redirect")?;
+        }
+        (_, RedOutKind::Stderr) => {
+            copy(&mut child.stdout.unwrap(), &mut stdout.to_writer()?)
+                .context("Failed to redirect")?;
+        }
+        (RedOutKind::File(out), RedOutKind::File(err))
+            if out == err && stdout.mode == stderr.mode =>
+        {
+            let mut writer = stdout.to_writer()?;
+            copy(&mut child.stdout.unwrap(), &mut writer).context("Failed to redirect")?;
+            copy(&mut child.stderr.unwrap(), &mut writer).context("Failed to redirect")?;
+        }
+        (_, _) => {
+            copy(&mut child.stderr.unwrap(), &mut stderr.to_writer()?)
+                .context("Failed to redirect")?;
+            copy(&mut child.stdout.unwrap(), &mut stdout.to_writer()?)
+                .context("Failed to redirect")?;
+        }
+    };
 
-    if output.stderr != super::RedOut::stderr() {
-        std::io::copy(&mut child.stderr.unwrap(), &mut output.stderr.to_writer()?)
-            .context("Failed to redirect")?;
-    }
     Ok(id)
 }

@@ -73,6 +73,11 @@ fn red_kind<I: Stream<Token = char>>() -> impl Parser<I, Output = RedKind> {
                 .map(|_| RedKind::Stderr(RedOutMode::Append))
                 .or(value(RedKind::Stderr(RedOutMode::Overwrite))),
         ),
+        token('&').and(token('>')).with(
+            token('>')
+                .map(|_| RedKind::Bind(RedOutMode::Append))
+                .or(value(RedKind::Bind(RedOutMode::Overwrite))),
+        ),
         token('<').map(|_| RedKind::Stdin),
         token('>').with(optional(token('>'))).map(|s| {
             RedKind::Stdout(if s.is_some() {

@@ -12,6 +12,7 @@ pub enum RedKind {
     Stdin,
     Stdout(RedOutMode),
     Stderr(RedOutMode),
+    Bind(RedOutMode)
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -190,6 +191,10 @@ impl Output {
                     RedKind::Stdin => res.stdin = RedIn::from_file(red.file)?,
                     RedKind::Stdout(m) => res.stdout = RedOut::from_file(red.file, m)?,
                     RedKind::Stderr(m) => res.stderr = RedOut::from_file(red.file, m)?,
+                    RedKind::Bind(m) => {
+                        res.stdout = RedOut::from_file(red.file.clone(), m)?;
+                        res.stderr = RedOut::from_file(red.file, m)?;
+                    }
                 }
                 Ok(res)
             })
