@@ -5,7 +5,7 @@ use super::redirect::{RedFile, RedKind, RedOutMode, Redirect};
 use super::{Cmd, CmdKind};
 use anyhow::Context;
 use combine::parser::char::spaces;
-use combine::{attempt, eof, many1, one_of, satisfy, sep_end_by, token, value, choice, optional};
+use combine::{attempt, choice, eof, many1, one_of, optional, satisfy, sep_end_by, token, value};
 use combine::{Parser, Stream};
 use either::Either;
 
@@ -63,18 +63,24 @@ fn red_file<I: Stream<Token = char>>() -> impl Parser<I, Output = RedFile> {
 
 fn red_kind<I: Stream<Token = char>>() -> impl Parser<I, Output = RedKind> {
     choice((
-        token('1').and(token('>')).with(token('>')
-            .map(|_| RedKind::Stdout(RedOutMode::Append))
-            .or(value(RedKind::Stdout(RedOutMode::Overwrite)))),
-        token('2').and(token('>')).with(token('>')
-            .map(|_| RedKind::Stderr(RedOutMode::Append))
-            .or(value(RedKind::Stderr(RedOutMode::Overwrite)))),
+        one_of("1-o".chars()).and(token('>')).with(
+            token('>')
+                .map(|_| RedKind::Stdout(RedOutMode::Append))
+                .or(value(RedKind::Stdout(RedOutMode::Overwrite))),
+        ),
+        one_of("2=e".chars()).and(token('>')).with(
+            token('>')
+                .map(|_| RedKind::Stderr(RedOutMode::Append))
+                .or(value(RedKind::Stderr(RedOutMode::Overwrite))),
+        ),
         token('<').map(|_| RedKind::Stdin),
-        token('>').with(optional(token('>'))).map(|s| RedKind::Stdout(if s.is_some() {
-            RedOutMode::Append
-        } else {
-            RedOutMode::Overwrite
-        }))
+        token('>').with(optional(token('>'))).map(|s| {
+            RedKind::Stdout(if s.is_some() {
+                RedOutMode::Append
+            } else {
+                RedOutMode::Overwrite
+            })
+        }),
     ))
 }
 

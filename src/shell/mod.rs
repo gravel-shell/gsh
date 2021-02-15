@@ -2,7 +2,7 @@ mod builtin;
 mod parse;
 mod redirect;
 
-pub use redirect::{Output, Redirect, RedIn, RedOut};
+pub use redirect::{Output, RedIn, RedOut, Redirect};
 
 use parse::parse_line;
 
