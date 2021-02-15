@@ -1,2 +1,2 @@
-# Gravel Shell (gsh)
+# [WIP] Gravel Shell (gsh)
 An interactive shell from The Gravel Project.
