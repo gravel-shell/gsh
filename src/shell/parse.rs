@@ -4,8 +4,11 @@ extern crate either;
 use super::redirect::{RedFile, RedKind, RedOutMode, Redirect};
 use super::{Cmd, CmdKind};
 use anyhow::Context;
-use combine::parser::char::spaces;
-use combine::{attempt, choice, eof, many1, one_of, optional, satisfy, sep_end_by, token, value};
+use combine::parser::char::{hex_digit, spaces};
+use combine::{
+    attempt, choice, count_min_max, eof, many, many1, one_of, optional, satisfy, sep_end_by, token,
+    value,
+};
 use combine::{Parser, Stream};
 use either::Either;
 
@@ -90,5 +93,42 @@ fn red_kind<I: Stream<Token = char>>() -> impl Parser<I, Output = RedKind> {
 }
 
 fn string<I: Stream<Token = char>>() -> impl Parser<I, Output = String> {
-    many1(satisfy(|c: char| !c.is_whitespace()))
+    lit_str().or(many1(satisfy(|c: char| !c.is_whitespace())))
+}
+
+fn lit_str<I: Stream<Token = char>>() -> impl Parser<I, Output = String> {
+    use std::convert::TryFrom;
+
+    token('"').with(many(satisfy(|c| c != '"').then(|c| {
+        if c == '\\' {
+            choice((
+                one_of("abefnrtv\\\"\'".chars()).map(|seq| match seq {
+                    'a' => '\x07',
+                    'b' => '\x08',
+                    'e' => '\x1b',
+                    'f' => '\x0c',
+                    'n' => '\n',
+                    'r' => '\r',
+                    't' => '\t',
+                    'v' => '\x0b',
+                    '\\' => '\\',
+                    '"' => '"',
+                    '\'' => '\'',
+                    _ => unreachable!(),
+                }),
+                token('x')
+                    .with(count_min_max(2, 2, hex_digit()))
+                    .map(|s: String| u8::from_str_radix(s.as_str(), 16).unwrap() as char),
+                one_of("uU".chars())
+                    .and(token('{'))
+                    .with(many1(hex_digit()).map(|s: String| {
+                        char::try_from(u32::from_str_radix(s.as_str(), 16).unwrap()).unwrap()
+                    }))
+                    .skip(token('}')),
+            ))
+            .left()
+        } else {
+            value(c).right()
+        }
+    })))
 }

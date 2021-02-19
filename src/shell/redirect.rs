@@ -12,7 +12,7 @@ pub enum RedKind {
     Stdin,
     Stdout(RedOutMode),
     Stderr(RedOutMode),
-    Bind(RedOutMode)
+    Bind(RedOutMode),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
