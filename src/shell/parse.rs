@@ -4,10 +4,10 @@ extern crate either;
 use super::redirect::{RedFile, RedKind, RedOutMode, Redirect};
 use super::{Cmd, CmdKind};
 use anyhow::Context;
-use combine::parser::char::{hex_digit, spaces};
+use combine::parser::char;
 use combine::{
-    attempt, choice, count_min_max, eof, many, many1, one_of, optional, satisfy, sep_end_by, token,
-    value,
+    attempt, choice, count_min_max, eof, many, many1, one_of, optional, satisfy, sep_end_by,
+    token, value,
 };
 use combine::{Parser, Stream};
 use either::Either;
@@ -20,8 +20,8 @@ pub fn parse_line<T: AsRef<str>>(input: T) -> anyhow::Result<Cmd> {
 }
 
 fn cmd<I: Stream<Token = char>>() -> impl Parser<I, Output = Cmd> {
-    spaces().with(eof().map(|()| Cmd::empty()).or(
-        (kind().skip(spaces()), sep_end_by(arg_or_red(), spaces())).map(
+    char::spaces().with(eof().map(|()| Cmd::empty()).or(
+        (kind().skip(char::spaces()), sep_end_by(arg_or_red(), char::spaces())).map(
             |(kind, args_reds): (_, Vec<_>)| {
                 let (args, redirects): (Vec<_>, Vec<_>) =
                     args_reds.into_iter().partition(|e| e.is_left());
@@ -47,7 +47,7 @@ fn arg_or_red<I: Stream<Token = char>>() -> impl Parser<I, Output = Either<Strin
 
 fn redirect<I: Stream<Token = char>>() -> impl Parser<I, Output = Redirect> {
     red_kind()
-        .skip(spaces())
+        .skip(char::spaces())
         .and(red_file())
         .map(|(kind, file)| Redirect { kind, file })
 }
@@ -93,42 +93,55 @@ fn red_kind<I: Stream<Token = char>>() -> impl Parser<I, Output = RedKind> {
 }
 
 fn string<I: Stream<Token = char>>() -> impl Parser<I, Output = String> {
-    lit_str().or(many1(satisfy(|c: char| !c.is_whitespace())))
+    choice((
+        raw_str(),
+        lit_str(),
+        many1(satisfy(|c: char| !c.is_whitespace())),
+    ))
 }
 
 fn lit_str<I: Stream<Token = char>>() -> impl Parser<I, Output = String> {
     use std::convert::TryFrom;
 
-    token('"').with(many(satisfy(|c| c != '"').then(|c| {
-        if c == '\\' {
-            choice((
-                one_of("abefnrtv\\\"\'".chars()).map(|seq| match seq {
-                    'a' => '\x07',
-                    'b' => '\x08',
-                    'e' => '\x1b',
-                    'f' => '\x0c',
-                    'n' => '\n',
-                    'r' => '\r',
-                    't' => '\t',
-                    'v' => '\x0b',
-                    '\\' => '\\',
-                    '"' => '"',
-                    '\'' => '\'',
-                    _ => unreachable!(),
-                }),
-                token('x')
-                    .with(count_min_max(2, 2, hex_digit()))
-                    .map(|s: String| u8::from_str_radix(s.as_str(), 16).unwrap() as char),
-                one_of("uU".chars())
-                    .and(token('{'))
-                    .with(many1(hex_digit()).map(|s: String| {
-                        char::try_from(u32::from_str_radix(s.as_str(), 16).unwrap()).unwrap()
-                    }))
-                    .skip(token('}')),
-            ))
-            .left()
-        } else {
-            value(c).right()
-        }
-    })))
+    token('"')
+        .with(many(satisfy(|c| c != '"').then(|c| {
+            if c == '\\' {
+                choice((
+                    one_of("abefnrtv\\\"".chars()).map(|seq| match seq {
+                        'a' => '\x07',
+                        'b' => '\x08',
+                        'e' => '\x1b',
+                        'f' => '\x0c',
+                        'n' => '\n',
+                        'r' => '\r',
+                        't' => '\t',
+                        'v' => '\x0b',
+                        '\\' => '\\',
+                        '"' => '"',
+                        _ => unreachable!(),
+                    }),
+                    token('x')
+                        .with(count_min_max(2, 2, char::hex_digit()))
+                        .map(|s: String| u8::from_str_radix(s.as_str(), 16).unwrap() as char),
+                    one_of("uU".chars())
+                        .and(token('{'))
+                        .with(many1(char::hex_digit()).map(|s: String| {
+                            char::try_from(u32::from_str_radix(s.as_str(), 16).unwrap()).unwrap()
+                        }))
+                        .skip(token('}')),
+                ))
+                .left()
+            } else {
+                value(c).right()
+            }
+        })))
+        .skip(token('"'))
+}
+
+fn raw_str<I: Stream<Token = char>>() -> impl Parser<I, Output = String> {
+    token('\'').with(many(choice((
+                    attempt(char::string("\\\\")).map(|_| '\\'),
+                    attempt(char::string("\\\'")).map(|_| '\''),
+                    satisfy(|c| c != '\''),
+    )))).skip(token('\''))
 }
