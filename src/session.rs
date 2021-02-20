@@ -1,4 +1,5 @@
-use crate::job::CurPid; use crate::shell::{Cmd, Parsed};
+use crate::job::CurPid;
+use crate::shell::{Cmd, Parsed};
 
 pub struct Session<T> {
     reader: T,
@@ -49,7 +50,7 @@ impl<T: Reader> Session<T> {
                     };
                     line.push('\n');
                     line.push_str(&additional);
-                    continue
+                    continue;
                 }
                 Err(e) => {
                     eprintln!("Parse Error: {}", e);
