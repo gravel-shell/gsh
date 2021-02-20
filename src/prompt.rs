@@ -2,7 +2,7 @@ extern crate rustyline;
 extern crate signal_hook;
 
 use crate::job::CurPid;
-use crate::session::Reader;
+use crate::session::{Reader, MoreLine};
 use anyhow::Context;
 use rustyline::{error::ReadlineError, Editor};
 use signal_hook::consts::signal;
@@ -27,12 +27,12 @@ impl Reader for PromptReader {
         }
     }
 
-    fn more_line(&mut self) -> anyhow::Result<String> {
+    fn more_line(&mut self) -> anyhow::Result<MoreLine> {
         match self.0.readline("... ") {
-            Ok(s) => Ok(s),
-            Err(ReadlineError::Interrupted) => Ok(String::new()),
-            Err(ReadlineError::Eof) => Ok(String::from("exit")),
+            Ok(s) => Ok(MoreLine::Get(s)),
+            Err(ReadlineError::Eof) => Ok(MoreLine::Eof),
             Err(e) => Err(e)?,
+
         }
     }
 }

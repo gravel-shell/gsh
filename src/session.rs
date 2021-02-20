@@ -5,10 +5,16 @@ pub struct Session<T> {
     cur_pid: CurPid,
 }
 
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum MoreLine {
+    Get(String),
+    Eof,
+}
+
 pub trait Reader: Sized {
     fn init(cur_pid: &CurPid) -> anyhow::Result<Self>;
     fn next_line(&mut self) -> anyhow::Result<String>;
-    fn more_line(&mut self) -> anyhow::Result<String>;
+    fn more_line(&mut self) -> anyhow::Result<MoreLine>;
 }
 
 impl<T: Reader> Session<T> {
@@ -34,7 +40,8 @@ impl<T: Reader> Session<T> {
                 Ok(Parsed::Complete(cmd)) => break cmd,
                 Ok(Parsed::Yet) => {
                     let additional = match self.reader.more_line() {
-                        Ok(s) => s,
+                        Ok(MoreLine::Get(s)) => s,
+                        Ok(MoreLine::Eof) => return Ok(true),
                         Err(e) => {
                             eprintln!("Readline Error: {}", e);
                             return Ok(true);
@@ -50,8 +57,6 @@ impl<T: Reader> Session<T> {
                 }
             }
         };
-
-        eprintln!("Parsed: {:?}", cmd);
 
         let id = match cmd.exec() {
             Ok(Some(id)) => id,

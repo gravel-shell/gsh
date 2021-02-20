@@ -113,9 +113,9 @@ fn spaces<I: Stream<Token = char>>() -> impl Parser<I, Output = ()> {
 
 fn string<I: Stream<Token = char>>() -> impl Parser<I, Output = String> {
     choice((
-        raw_unindent(),
+        attempt(raw_unindent()),
         raw_str(),
-        lit_unindent(),
+        attempt(lit_unindent()),
         lit_str(),
         many1(satisfy(|c: char| !c.is_whitespace() && c != '#')),
     ))
