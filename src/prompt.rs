@@ -26,6 +26,15 @@ impl Reader for PromptReader {
             Err(e) => Err(e)?,
         }
     }
+
+    fn more_line(&mut self) -> anyhow::Result<String> {
+        match self.0.readline("... ") {
+            Ok(s) => Ok(s),
+            Err(ReadlineError::Interrupted) => Ok(String::new()),
+            Err(ReadlineError::Eof) => Ok(String::from("exit")),
+            Err(e) => Err(e)?,
+        }
+    }
 }
 
 fn sighook(child_id: &CurPid) -> anyhow::Result<()> {

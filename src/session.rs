@@ -1,5 +1,4 @@
-use crate::job::CurPid;
-use crate::shell::Cmd;
+use crate::job::CurPid; use crate::shell::{Cmd, Parsed};
 
 pub struct Session<T> {
     reader: T,
@@ -9,6 +8,7 @@ pub struct Session<T> {
 pub trait Reader: Sized {
     fn init(cur_pid: &CurPid) -> anyhow::Result<Self>;
     fn next_line(&mut self) -> anyhow::Result<String>;
+    fn more_line(&mut self) -> anyhow::Result<String>;
 }
 
 impl<T: Reader> Session<T> {
@@ -21,7 +21,7 @@ impl<T: Reader> Session<T> {
     }
 
     pub fn next(&mut self) -> anyhow::Result<bool> {
-        let line = match self.reader.next_line() {
+        let mut line = match self.reader.next_line() {
             Ok(s) => s,
             Err(e) => {
                 eprintln!("Readline Error: {}", e);
@@ -29,11 +29,24 @@ impl<T: Reader> Session<T> {
             }
         };
 
-        let cmd = match Cmd::parse(line) {
-            Ok(cmd) => cmd,
-            Err(e) => {
-                eprintln!("Parse Error: {}", e);
-                return Ok(true);
+        let cmd = loop {
+            match Cmd::parse(line.as_str()) {
+                Ok(Parsed::Complete(cmd)) => break cmd,
+                Ok(Parsed::Yet) => {
+                    let additional = match self.reader.more_line() {
+                        Ok(s) => s,
+                        Err(e) => {
+                            eprintln!("Readline Error: {}", e);
+                            return Ok(true);
+                        }
+                    };
+                    line.push_str(&additional);
+                    continue
+                }
+                Err(e) => {
+                    eprintln!("Parse Error: {}", e);
+                    return Ok(true);
+                }
             }
         };
 

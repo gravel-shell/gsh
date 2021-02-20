@@ -2,6 +2,7 @@ mod builtin;
 mod parse;
 mod redirect;
 
+pub use parse::Parsed;
 pub use redirect::{Output, RedIn, RedOut, Redirect};
 
 use parse::parse_line;
@@ -24,7 +25,7 @@ impl Cmd {
         }
     }
 
-    pub fn parse<T: AsRef<str>>(input: T) -> anyhow::Result<Self> {
+    pub fn parse(input: &str) -> anyhow::Result<Parsed> {
         parse_line(input)
     }
 

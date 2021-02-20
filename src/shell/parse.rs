@@ -3,21 +3,28 @@ extern crate either;
 
 use super::redirect::{RedFile, RedKind, RedOutMode, Redirect};
 use super::{Cmd, CmdKind};
-use anyhow::Context;
 use combine::parser::char;
 use combine::parser::repeat::skip_until;
 use combine::{
-    attempt, choice, count_min_max, eof, many, many1, one_of, optional, satisfy, sep_end_by,
-    token, value
+    attempt, choice, count_min_max, eof, many, many1, one_of, optional, satisfy, sep_end_by, token,
+    value,
 };
-use combine::{Parser, Stream};
+use combine::{EasyParser, ParseError, Parser, Stream};
 use either::Either;
 
-pub fn parse_line<T: AsRef<str>>(input: T) -> anyhow::Result<Cmd> {
-    let (res, _) = cmd()
-        .parse(input.as_ref())
-        .context("Failed to parse line.")?;
-    Ok(res)
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum Parsed {
+    Complete(Cmd),
+    Yet,
+}
+
+pub fn parse_line(input: &str) -> anyhow::Result<Parsed> {
+    Ok(match cmd().easy_parse(input) {
+        Ok((res, rem)) if rem.len() == 0 => Parsed::Complete(res),
+        Ok(_) => anyhow::bail!("Unread characters are remain."),
+        Err(e) if e.is_unexpected_end_of_input() => Parsed::Yet,
+        Err(e) => anyhow::bail!(e.to_string()),
+    })
 }
 
 fn cmd<I: Stream<Token = char>>() -> impl Parser<I, Output = Cmd> {
@@ -94,7 +101,10 @@ fn red_kind<I: Stream<Token = char>>() -> impl Parser<I, Output = RedKind> {
 }
 
 fn spaces<I: Stream<Token = char>>() -> impl Parser<I, Output = ()> {
-    token('#').and(skip_until(eof())).map(|_| ()).or(char::spaces())
+    token('#')
+        .and(skip_until(token('\n')))
+        .map(|_| ())
+        .or(char::spaces())
 }
 
 fn string<I: Stream<Token = char>>() -> impl Parser<I, Output = String> {
@@ -144,9 +154,11 @@ fn lit_str<I: Stream<Token = char>>() -> impl Parser<I, Output = String> {
 }
 
 fn raw_str<I: Stream<Token = char>>() -> impl Parser<I, Output = String> {
-    token('\'').with(many(choice((
-                    attempt(char::string("\\\\")).map(|_| '\\'),
-                    attempt(char::string("\\\'")).map(|_| '\''),
-                    satisfy(|c| c != '\''),
-    )))).skip(token('\''))
+    token('\'')
+        .with(many(choice((
+            attempt(char::string("\\\\")).map(|_| '\\'),
+            attempt(char::string("\\\'")).map(|_| '\''),
+            satisfy(|c| c != '\''),
+        ))))
+        .skip(token('\''))
 }
