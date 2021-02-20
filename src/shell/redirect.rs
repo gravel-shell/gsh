@@ -10,6 +10,7 @@ pub struct Redirect {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum RedKind {
     Stdin,
+    HereDoc,
     Stdout(RedOutMode),
     Stderr(RedOutMode),
     Bind(RedOutMode),
@@ -133,15 +134,17 @@ pub enum RedIn {
     Stdin,
     Null,
     File(String),
+    HereDoc(String),
 }
 
 impl RedIn {
-    pub fn from_file(file: RedFile) -> anyhow::Result<Self> {
+    pub fn from_file(file: RedFile, here_doc: bool) -> anyhow::Result<Self> {
         Ok(match file {
             RedFile::Stdin => Self::Stdin,
             RedFile::Stdout => anyhow::bail!("Can't redirect input from stdout."),
             RedFile::Stderr => anyhow::bail!("Can't redirect input from stderr."),
             RedFile::Null => Self::Null,
+            RedFile::File(s) if here_doc => Self::HereDoc(s),
             RedFile::File(s) => Self::File(s),
         })
     }
@@ -151,6 +154,10 @@ impl RedIn {
             Self::Stdin => RedInReader::Stdin(io::stdin()),
             Self::Null => RedInReader::File(File::open("/dev/null")?),
             Self::File(s) => RedInReader::File(File::open(s)?),
+            Self::HereDoc(mut s) => {
+                s.push('\n');
+                RedInReader::Bytes(io::Cursor::new(s.into_bytes()))
+            }
         })
     }
 }
@@ -159,6 +166,7 @@ impl RedIn {
 pub enum RedInReader {
     Stdin(io::Stdin),
     File(File),
+    Bytes(io::Cursor<Vec<u8>>),
 }
 
 impl io::Read for RedInReader {
@@ -166,6 +174,7 @@ impl io::Read for RedInReader {
         match self {
             Self::Stdin(r) => r.read(buf),
             Self::File(r) => r.read(buf),
+            Self::Bytes(r) => r.read(buf),
         }
     }
 }
@@ -188,7 +197,8 @@ impl Output {
             .fold(Ok(res), |acc: anyhow::Result<_>, red| {
                 let mut res = acc?;
                 match red.kind {
-                    RedKind::Stdin => res.stdin = RedIn::from_file(red.file)?,
+                    RedKind::Stdin => res.stdin = RedIn::from_file(red.file, false)?,
+                    RedKind::HereDoc => res.stdin = RedIn::from_file(red.file, true)?,
                     RedKind::Stdout(m) => res.stdout = RedOut::from_file(red.file, m)?,
                     RedKind::Stderr(m) => res.stderr = RedOut::from_file(red.file, m)?,
                     RedKind::Bind(m) => {
