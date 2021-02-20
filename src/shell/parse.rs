@@ -113,10 +113,19 @@ fn spaces<I: Stream<Token = char>>() -> impl Parser<I, Output = ()> {
 
 fn string<I: Stream<Token = char>>() -> impl Parser<I, Output = String> {
     choice((
+        raw_unindent(),
         raw_str(),
+        lit_unindent(),
         lit_str(),
         many1(satisfy(|c: char| !c.is_whitespace() && c != '#')),
     ))
+}
+
+fn lit_unindent<I: Stream<Token = char>>() -> impl Parser<I, Output = String> {
+    char::string("\"\"")
+        .with(lit_str())
+        .skip(char::string("\"\""))
+        .map(|s| unindent::unindent(&s))
 }
 
 fn lit_str<I: Stream<Token = char>>() -> impl Parser<I, Output = String> {
@@ -155,6 +164,13 @@ fn lit_str<I: Stream<Token = char>>() -> impl Parser<I, Output = String> {
             }
         })))
         .skip(token('"'))
+}
+
+fn raw_unindent<I: Stream<Token = char>>() -> impl Parser<I, Output = String> {
+    char::string("''")
+        .with(raw_str())
+        .skip(char::string("''"))
+        .map(|s| unindent::unindent(&s))
 }
 
 fn raw_str<I: Stream<Token = char>>() -> impl Parser<I, Output = String> {
