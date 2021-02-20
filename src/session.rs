@@ -40,6 +40,7 @@ impl<T: Reader> Session<T> {
                             return Ok(true);
                         }
                     };
+                    line.push('\n');
                     line.push_str(&additional);
                     continue
                 }
