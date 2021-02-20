@@ -5,9 +5,10 @@ use super::redirect::{RedFile, RedKind, RedOutMode, Redirect};
 use super::{Cmd, CmdKind};
 use anyhow::Context;
 use combine::parser::char;
+use combine::parser::repeat::skip_until;
 use combine::{
     attempt, choice, count_min_max, eof, many, many1, one_of, optional, satisfy, sep_end_by,
-    token, value,
+    token, value
 };
 use combine::{Parser, Stream};
 use either::Either;
@@ -20,8 +21,8 @@ pub fn parse_line<T: AsRef<str>>(input: T) -> anyhow::Result<Cmd> {
 }
 
 fn cmd<I: Stream<Token = char>>() -> impl Parser<I, Output = Cmd> {
-    char::spaces().with(eof().map(|()| Cmd::empty()).or(
-        (kind().skip(char::spaces()), sep_end_by(arg_or_red(), char::spaces())).map(
+    spaces().with(eof().map(|()| Cmd::empty()).or(
+        (kind().skip(spaces()), sep_end_by(arg_or_red(), spaces())).map(
             |(kind, args_reds): (_, Vec<_>)| {
                 let (args, redirects): (Vec<_>, Vec<_>) =
                     args_reds.into_iter().partition(|e| e.is_left());
@@ -47,7 +48,7 @@ fn arg_or_red<I: Stream<Token = char>>() -> impl Parser<I, Output = Either<Strin
 
 fn redirect<I: Stream<Token = char>>() -> impl Parser<I, Output = Redirect> {
     red_kind()
-        .skip(char::spaces())
+        .skip(spaces())
         .and(red_file())
         .map(|(kind, file)| Redirect { kind, file })
 }
@@ -92,11 +93,15 @@ fn red_kind<I: Stream<Token = char>>() -> impl Parser<I, Output = RedKind> {
     ))
 }
 
+fn spaces<I: Stream<Token = char>>() -> impl Parser<I, Output = ()> {
+    token('#').and(skip_until(eof())).map(|_| ()).or(char::spaces())
+}
+
 fn string<I: Stream<Token = char>>() -> impl Parser<I, Output = String> {
     choice((
         raw_str(),
         lit_str(),
-        many1(satisfy(|c: char| !c.is_whitespace())),
+        many1(satisfy(|c: char| !c.is_whitespace() && c != '#')),
     ))
 }
 
