@@ -1,6 +1,4 @@
 use super::RedFile;
-use std::fs::File;
-use std::io;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum RedIn {
@@ -22,32 +20,4 @@ impl RedIn {
         })
     }
 
-    pub fn to_reader(self) -> anyhow::Result<RedInReader> {
-        Ok(match self {
-            Self::Stdin => RedInReader::Stdin(io::stdin()),
-            Self::Null => RedInReader::File(File::open("/dev/null")?),
-            Self::File(s) => RedInReader::File(File::open(s)?),
-            Self::HereDoc(mut s) => {
-                s.push('\n');
-                RedInReader::Bytes(io::Cursor::new(s.into_bytes()))
-            }
-        })
-    }
-}
-
-#[derive(Debug)]
-pub enum RedInReader {
-    Stdin(io::Stdin),
-    File(File),
-    Bytes(io::Cursor<Vec<u8>>),
-}
-
-impl io::Read for RedInReader {
-    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
-        match self {
-            Self::Stdin(r) => r.read(buf),
-            Self::File(r) => r.read(buf),
-            Self::Bytes(r) => r.read(buf),
-        }
-    }
 }

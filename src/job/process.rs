@@ -57,24 +57,80 @@ impl Into<Pid> for Process {
     }
 }
 
+fn option(mode: crate::redirect::RedOutMode) -> std::fs::OpenOptions {
+    use crate::redirect::RedOutMode;
+    let mut option = std::fs::OpenOptions::new();
+    match mode {
+        RedOutMode::Overwrite => option.write(true).create(true),
+        RedOutMode::Append => option.write(true).append(true),
+    };
+    option
+}
+
 impl Process {
     pub fn new_cmd(name: &str, args: Vec<String>, output: Output) -> anyhow::Result<Self> {
         use crate::redirect::*;
+        use std::fs::File;
         use std::io::copy;
         use std::process::{Command, Stdio};
         let mut child = Command::new(name);
         child.args(args);
 
-        if output.stdin != RedIn::Stdin {
-            child.stdin(Stdio::piped());
+        let Output {
+            stdin,
+            stdout,
+            stderr,
+        } = output;
+
+        match stdin {
+            RedIn::Stdin => {}
+            RedIn::Null => {
+                child.stdin(Stdio::from(File::open("/dev/null")?));
+            }
+            RedIn::File(ref s) => {
+                child.stdin(Stdio::from(File::open(s)?));
+            }
+            RedIn::HereDoc(_) => {
+                child.stdin(Stdio::piped());
+            }
         }
 
-        if output.stdout != RedOut::stdout() {
-            child.stdout(Stdio::piped());
-        }
+        if matches!(stdout.kind, RedOutKind::Null | RedOutKind::File(_)) && stdout == stderr {
+            let file = match stdout.kind {
+                RedOutKind::Null => "/dev/null",
+                RedOutKind::File(ref s) => s,
+                _ => unreachable!(),
+            };
 
-        if output.stderr != RedOut::stderr() {
-            child.stderr(Stdio::piped());
+            let out = option(stdout.mode).open(file)?;
+            let err = out.try_clone()?;
+
+            child.stdout(Stdio::from(out));
+            child.stderr(Stdio::from(err));
+        } else {
+            match stdout.kind {
+                RedOutKind::Stdout => {}
+                RedOutKind::Stderr => {
+                    child.stdout(Stdio::piped());
+                }
+                RedOutKind::Null => {
+                    child.stdout(Stdio::from(option(stdout.mode).open("/dev/null")?));
+                }
+                RedOutKind::File(ref s) => {
+                    child.stdout(Stdio::from(option(stdout.mode).open(s)?));
+                }
+            }
+
+            match stderr.kind {
+                RedOutKind::Stdout => {child.stderr(Stdio::piped());}
+                RedOutKind::Stderr => {}
+                RedOutKind::Null => {
+                    child.stderr(Stdio::from(option(stderr.mode).open("/dev/null")?));
+                }
+                RedOutKind::File(ref s) => {
+                    child.stderr(Stdio::from(option(stderr.mode).open(s)?));
+                }
+            }
         }
 
         let child = child
@@ -83,41 +139,18 @@ impl Process {
 
         let process = Self::from(child.id() as i32);
 
-        let Output {
-            stdin,
-            stdout,
-            stderr,
-        } = output;
-
-        if stdin != RedIn::Stdin {
-            std::io::copy(&mut stdin.to_reader()?, &mut child.stdin.unwrap())
-                .context("Failed to redirect")?;
+        if let RedIn::HereDoc(s) = stdin {
+            use std::io::Write;
+            child.stdin.unwrap().write_all(s.as_bytes())?;
         }
 
-        match (stdout.kind.clone(), stderr.kind.clone()) {
-            (RedOutKind::Stdout, RedOutKind::Stderr) => {}
-            (RedOutKind::Stdout, _) => {
-                copy(&mut child.stderr.unwrap(), &mut stderr.to_writer()?)
-                    .context("Failed to redirect")?;
-            }
-            (_, RedOutKind::Stderr) => {
-                copy(&mut child.stdout.unwrap(), &mut stdout.to_writer()?)
-                    .context("Failed to redirect")?;
-            }
-            (RedOutKind::File(out), RedOutKind::File(err))
-                if out == err && stdout.mode == stderr.mode =>
-            {
-                let mut writer = stdout.to_writer()?;
-                copy(&mut child.stdout.unwrap(), &mut writer).context("Failed to redirect")?;
-                copy(&mut child.stderr.unwrap(), &mut writer).context("Failed to redirect")?;
-            }
-            (_, _) => {
-                copy(&mut child.stderr.unwrap(), &mut stderr.to_writer()?)
-                    .context("Failed to redirect")?;
-                copy(&mut child.stdout.unwrap(), &mut stdout.to_writer()?)
-                    .context("Failed to redirect")?;
-            }
-        };
+        if let RedOutKind::Stderr = stdout.kind {
+            copy(&mut child.stdout.unwrap(), &mut std::io::stderr())?;
+        }
+
+        if let RedOutKind::Stdout = stderr.kind {
+            copy(&mut child.stderr.unwrap(), &mut std::io::stdout())?;
+        }
 
         Ok(process)
     }
