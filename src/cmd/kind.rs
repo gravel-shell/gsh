@@ -9,6 +9,7 @@ pub enum CmdKind {
     Cd,
     Fg,
     Jobs,
+    Spawn,
     Cmd(String),
 }
 
@@ -19,6 +20,7 @@ impl CmdKind {
             "cd" => Self::Cd,
             "fg" => Self::Fg,
             "jobs" => Self::Jobs,
+            "s" | "spawn" => Self::Spawn,
             s => Self::Cmd(s.into()),
         }
     }
@@ -30,6 +32,7 @@ impl CmdKind {
             CmdKind::Cd => cd(args)?,
             CmdKind::Fg => fg(args, jobs)?,
             CmdKind::Jobs => println!("{:#?}", jobs),
+            CmdKind::Spawn => spawn(args, output, jobs)?,
             CmdKind::Cmd(ref name) => jobs.new_fg(name, args, output)?,
         }
 
@@ -78,6 +81,22 @@ pub fn fg(args: Vec<String>, jobs: &mut Jobs) -> anyhow::Result<()> {
     };
 
     jobs.to_fg(id)?;
+
+    Ok(())
+}
+
+pub fn spawn(args: Vec<String>, output: Output, jobs: &mut Jobs) -> anyhow::Result<()> {
+    if args.len() == 0 {
+        anyhow::bail!("Please specify the command to spawn.");
+    }
+
+    let mut args = args.into_iter();
+    let name = args.next().unwrap();
+    let args = args.collect();
+
+    let (id, pid) = jobs.new_bg(&name, args, output)?;
+
+    println!("Spawned a new background process: %{} ({})", id, pid);
 
     Ok(())
 }

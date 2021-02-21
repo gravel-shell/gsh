@@ -43,13 +43,16 @@ fn sighook(jobs: &SharedJobs) -> anyhow::Result<()> {
     let jobs = jobs.clone();
     thread::spawn(move || {
         for sig in signals.forever() {
-            jobs.with(|jobs| match sig {
+            let res = jobs.with(|jobs| match sig {
                 signal::SIGINT => jobs.sigint(),
                 signal::SIGTSTP => jobs.sigtstp(),
                 signal::SIGCHLD => jobs.sigchld(),
                 _ => unreachable!(),
-            })
-            .unwrap();
+            });
+            match res {
+                Ok(()) => (),
+                Err(e) => eprintln!("Signal hook: {}", e),
+            }
         }
     });
     Ok(())

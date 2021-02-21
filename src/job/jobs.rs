@@ -67,6 +67,14 @@ impl Jobs {
         Ok(())
     }
 
+    pub fn new_bg(&mut self, name: &str, args: Vec<String>, output: Output) -> anyhow::Result<(usize, i32)> {
+        let id = self.get_available_id();
+        let proc = Process::new_cmd(name, args, output)?;
+        self.0.insert(id, proc);
+        Ok((id, proc.pid()))
+
+    }
+
     pub fn wait_fg(&mut self) -> anyhow::Result<Option<Status>> {
         let res = match self.0.get(&0) {
             Some(proc) => Some(proc.wait()?),
@@ -105,24 +113,24 @@ impl Jobs {
 
         match status {
             s if s.continued() => {
-                eprintln!("[Background process %{} ({}) continued]", id, pid);
+                eprintln!("\n[Background process %{} ({}) continued]", id, pid);
                 proc.suspended = false;
                 self.0.insert(id, proc);
             }
             s if s.stopped() => {
-                eprintln!("[Background process %{} ({}) stopped]", id, pid);
+                eprintln!("\n[Background process %{} ({}) stopped]", id, pid);
                 proc.suspended = true;
                 self.0.insert(id, proc);
             }
             Status::Signaled(s) => {
                 eprintln!(
-                    "[Background process %{} ({}) terminated with signal \"{}\"]",
+                    "\n[Background process %{} ({}) terminated with signal \"{}\"]",
                     id, pid, s
                 );
             }
             Status::Exited(c) => {
                 eprintln!(
-                    "[Background process %{} ({}) exited with code \"{}\"]",
+                    "\n[Background process %{} ({}) exited with code \"{}\"]",
                     id, pid, c
                 );
             }
