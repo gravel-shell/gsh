@@ -59,16 +59,15 @@ impl<T: Reader> Session<T> {
             }
         };
 
-        let mut jobs = self.jobs.get()?;
-        match cmd.exec(&mut jobs) {
+        match self.jobs.with(|jobs| cmd.exec(jobs)) {
             Ok(_) => (),
             Err(e) => {
                 eprintln!("{}", e);
                 return Ok(true);
             }
         }
-        eprintln!("{:?}", jobs);
-        self.jobs.store(jobs.clone())?;
+
+        let mut jobs = self.jobs.get()?;
         jobs.wait_fg()?;
         self.jobs.store(jobs)?;
 

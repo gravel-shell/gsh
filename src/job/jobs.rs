@@ -15,6 +15,18 @@ impl SharedJobs {
         Self(Arc::clone(&self.0))
     }
 
+    pub fn with<F, T>(&self, f: F) -> anyhow::Result<T>
+    where
+        F: FnOnce(&mut Jobs) -> anyhow::Result<T>
+    {
+        let mut lock = match self.0.lock() {
+            Ok(l) => l,
+            Err(e) => anyhow::bail!("Failed to get the lock: {}", e),
+        };
+
+        f(&mut lock)
+    }
+
     pub fn get(&self) -> anyhow::Result<Jobs> {
         let lock = match self.0.lock() {
             Ok(l) => l,

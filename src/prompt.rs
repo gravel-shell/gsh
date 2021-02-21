@@ -43,23 +43,25 @@ fn sighook(jobs: &SharedJobs) -> anyhow::Result<()> {
     let jobs = jobs.clone();
     thread::spawn(move || {
         for sig in signals.forever() {
-            let mut tmp_jobs = jobs.get().unwrap();
-            match sig {
-                signal::SIGINT => {
-                    let proc = tmp_jobs.pop(0);
-                    if let Some(id) = proc {
-                        id.interrupt().unwrap();
-                        println!("\nInterrupt");
+            jobs.with(|jobs| {
+                match sig {
+                    signal::SIGINT => {
+                        let proc = jobs.pop(0);
+                        if let Some(id) = proc {
+                            id.interrupt()?;
+                            println!("\nInterrupt");
+                        }
                     }
+                    signal::SIGTSTP => {
+                        // proc.suspend().unwrap();
+                        // cur_proc.store(proc).unwrap();
+                        // println!("\nSuspend: {}", proc);
+                    }
+                    _ => unreachable!(),
                 }
-                signal::SIGTSTP => {
-                    // proc.suspend().unwrap();
-                    // cur_proc.store(proc).unwrap();
-                    // println!("\nSuspend: {}", proc);
-                }
-                _ => unreachable!(),
-            }
-            jobs.store(tmp_jobs).unwrap();
+                Ok(())
+            })
+            .unwrap();
         }
     });
     Ok(())
