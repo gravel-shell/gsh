@@ -10,8 +10,8 @@ use crate::redirect::Output;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub struct Process {
-    pid: Pid,
-    suspended: bool,
+    pub(super) pid: Pid,
+    pub(super) suspended: bool,
 }
 
 impl fmt::Display for Process {
@@ -180,4 +180,34 @@ impl Process {
             _ => Status::Signaled(Signal::try_from(status).context("Unnexpected signal.")?),
         })
     }
+}
+
+pub fn sigchld() -> anyhow::Result<Option<(i32, Status)>> {
+    let (pid, code, status, is_error) = unsafe {
+        let mut siginfo = std::mem::zeroed();
+        let error = libc::waitid(
+            libc::P_ALL,
+            0,
+            &mut siginfo,
+            libc::WEXITED | libc::WSTOPPED | libc::WCONTINUED | libc::WNOWAIT,
+        );
+        let siginfo = siginfo as libc::siginfo_t;
+        (
+            siginfo.si_pid() as i32,
+            siginfo.si_code as i32,
+            siginfo.si_status() as i32,
+            error == -1,
+        )
+    };
+
+    if is_error {
+        return Ok(None);
+    }
+
+    let status = match code {
+        libc::CLD_EXITED => Status::Exited(status),
+        _ => Status::Signaled(Signal::try_from(status).context("Unnexpected signal.")?),
+    };
+
+    Ok(Some((pid, status)))
 }

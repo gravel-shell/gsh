@@ -26,4 +26,11 @@ impl Status {
             _ => false
         }
     }
+
+    pub fn continued(&self) -> bool {
+        match self {
+            Self::Signaled(Signal::SIGCONT) => true,
+            _ => false,
+        }
+    }
 }

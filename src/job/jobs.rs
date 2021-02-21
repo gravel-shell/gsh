@@ -73,8 +73,14 @@ impl Jobs {
             None => None,
         };
         let res = match res {
-            // Don't delete process if signaled "Stop".
-            Some(status) if status.stopped() => None,
+            Some(status) if status.stopped() => {
+                let mut proc = self.0.remove(&0).unwrap();
+                let id = self.get_available_id();
+                eprintln!("\nSuspended: %{} ({})", id, proc.pid());
+                proc.suspended = true;
+                self.0.insert(id, proc);
+                res
+            },
             Some(_) => {
                 self.0.remove(&0);
                 res
@@ -82,6 +88,59 @@ impl Jobs {
             None => None,
         };
         Ok(res)
+    }
+
+    pub fn sigchld(&mut self) -> anyhow::Result<()> {
+        let (pid, status) = match super::process::sigchld()? {
+            Some(s) => s,
+            None => return Ok(()),
+        };
+
+        if self.0.get(&0).map(|proc| proc.pid()) == Some(pid) {
+            return Ok(());
+        }
+
+        let id = self.from_pid(pid).context("Failed to catch SIGCHLD")?;
+        let mut proc = self.0.remove(&id).context("Failed to get the process.")?;
+
+        match status {
+            s if s.continued() => {
+                eprintln!("[Background process %{} ({}) continued]", id, pid);
+                proc.suspended = false;
+                self.0.insert(id, proc);
+            }
+            s if s.stopped() => {
+                eprintln!("[Background process %{} ({}) stopped]", id, pid);
+                proc.suspended = true;
+                self.0.insert(id, proc);
+            }
+            Status::Signaled(s) => {
+                eprintln!(
+                    "[Background process %{} ({}) terminated with signal \"{}\"]",
+                    id, pid, s
+                );
+            }
+            Status::Exited(c) => {
+                eprintln!(
+                    "[Background process %{} ({}) exited with code \"{}\"]",
+                    id, pid, c
+                );
+            }
+        }
+
+        Ok(())
+    }
+
+    pub fn sigint(&mut self) -> anyhow::Result<()> {
+        match self.interrupt(0)? {
+            Some(_) => eprintln!("\nInterrupt"),
+            None => (),
+        }
+        Ok(())
+    }
+
+    pub fn sigtstp(&mut self) -> anyhow::Result<()> {
+        self.suspend(0)
     }
 
     pub fn interrupt(&mut self, id: usize) -> anyhow::Result<Option<Status>> {
@@ -93,16 +152,14 @@ impl Jobs {
         }
     }
 
-    pub fn suspend(&mut self, id: usize) -> anyhow::Result<Option<(usize, i32)>> {
+    pub fn suspend(&mut self, id: usize) -> anyhow::Result<()> {
         let proc = self.0.remove(&id);
         if let Some(mut proc) = proc {
             proc.suspend()?;
-            let id = if id == 0 { self.get_available_id() } else { id };
             self.0.insert(id, proc);
-            Ok(Some((id, proc.pid())))
-        } else {
-            Ok(None)
         }
+
+        Ok(())
     }
 
     pub fn to_fg(&mut self, id: usize) -> anyhow::Result<()> {

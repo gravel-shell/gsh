@@ -37,29 +37,17 @@ impl Reader for PromptReader {
 }
 
 fn sighook(jobs: &SharedJobs) -> anyhow::Result<()> {
-    let mut signals = Signals::new(&[signal::SIGINT, signal::SIGTSTP])
+    let mut signals = Signals::new(&[signal::SIGINT, signal::SIGTSTP, signal::SIGCHLD])
         .context("Failed to initialize signals.")?;
 
     let jobs = jobs.clone();
     thread::spawn(move || {
         for sig in signals.forever() {
-            jobs.with(|jobs| {
-                match sig {
-                    signal::SIGINT => {
-                        match jobs.interrupt(0).unwrap() {
-                            Some(_) => eprintln!("\nInterrupt"),
-                            None => ()
-                        }
-                    }
-                    signal::SIGTSTP => {
-                        match jobs.suspend(0).unwrap() {
-                            Some((id, pid)) => eprintln!("\nSuspended: %{} ({})", id, pid),
-                            None => ()
-                        }
-                    }
-                    _ => unreachable!(),
-                }
-                Ok(())
+            jobs.with(|jobs| match sig {
+                signal::SIGINT => jobs.sigint(),
+                signal::SIGTSTP => jobs.sigtstp(),
+                signal::SIGCHLD => jobs.sigchld(),
+                _ => unreachable!(),
             })
             .unwrap();
         }
