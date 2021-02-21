@@ -68,8 +68,10 @@ impl<T: Reader> Session<T> {
         }
 
         let mut jobs = self.jobs.get()?;
-        jobs.wait_fg()?;
-        self.jobs.store(jobs)?;
+        match jobs.wait_fg()? {
+            Some(_) => self.jobs.store(jobs)?,
+            None => (),
+        }
 
         Ok(true)
     }

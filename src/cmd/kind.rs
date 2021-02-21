@@ -1,5 +1,5 @@
-use crate::redirect::Output;
 use crate::job::Jobs;
+use crate::redirect::Output;
 use anyhow::Context;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -8,6 +8,7 @@ pub enum CmdKind {
     Exit,
     Cd,
     Fg,
+    Jobs,
     Cmd(String),
 }
 
@@ -17,6 +18,7 @@ impl CmdKind {
             "exit" => Self::Exit,
             "cd" => Self::Cd,
             "fg" => Self::Fg,
+            "jobs" => Self::Jobs,
             s => Self::Cmd(s.into()),
         }
     }
@@ -26,8 +28,8 @@ impl CmdKind {
             CmdKind::Empty => (),
             CmdKind::Exit => exit(args)?,
             CmdKind::Cd => cd(args)?,
-            // CmdKind::Fg => fg(args, jobs)?,
-            CmdKind::Fg => (),
+            CmdKind::Fg => fg(args, jobs)?,
+            CmdKind::Jobs => println!("{:#?}", jobs),
             CmdKind::Cmd(ref name) => jobs.new_fg(name, args, output)?,
         }
 
@@ -58,15 +60,24 @@ pub fn cd(args: Vec<String>) -> anyhow::Result<()> {
     Ok(())
 }
 
-// pub fn fg(args: Vec<String>) -> anyhow::Result<()> {
-//     if args.len() != 1 {
-//         anyhow::bail!("Unexpected args number.");
-//     }
+pub fn fg(args: Vec<String>, jobs: &mut Jobs) -> anyhow::Result<()> {
+    if args.len() != 1 {
+        anyhow::bail!("Unexpected args number.");
+    }
 
-//     let id = args.into_iter().next().unwrap();
+    let id = args.into_iter().next().unwrap();
 
-//     let mut id = id.parse::<Process>().context("Failed to parse a number.")?;
-//     id.restart()?;
+    let id = if id.chars().next() == Some('%') {
+        id.get(1..)
+            .context("Unexpected end.")?
+            .parse::<usize>()
+            .context("Failed to parse a number.")?
+    } else {
+        jobs.from_pid(id.parse().context("Failed to parse a number.")?)
+            .context("Can't find such a process.")?
+    };
 
-//     Ok(id)
-// }
+    jobs.to_fg(id)?;
+
+    Ok(())
+}

@@ -46,16 +46,16 @@ fn sighook(jobs: &SharedJobs) -> anyhow::Result<()> {
             jobs.with(|jobs| {
                 match sig {
                     signal::SIGINT => {
-                        let proc = jobs.pop(0);
-                        if let Some(id) = proc {
-                            id.interrupt()?;
-                            println!("\nInterrupt");
+                        match jobs.interrupt(0).unwrap() {
+                            Some(_) => eprintln!("\nInterrupt"),
+                            None => ()
                         }
                     }
                     signal::SIGTSTP => {
-                        // proc.suspend().unwrap();
-                        // cur_proc.store(proc).unwrap();
-                        // println!("\nSuspend: {}", proc);
+                        match jobs.suspend(0).unwrap() {
+                            Some((id, pid)) => eprintln!("\nSuspended: %{} ({})", id, pid),
+                            None => ()
+                        }
                     }
                     _ => unreachable!(),
                 }

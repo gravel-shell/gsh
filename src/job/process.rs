@@ -122,6 +122,14 @@ impl Process {
         Ok(process)
     }
 
+    pub fn pid(&self) -> i32 {
+        self.pid.as_raw()
+    }
+
+    pub fn suspended(&self) -> bool {
+        self.suspended
+    }
+
     pub fn interrupt(self) -> anyhow::Result<Status> {
         kill(self.into(), Signal::SIGINT).context("Failed to inetrrupt the process.")?;
         Ok(Status::Signaled(Signal::SIGINT))

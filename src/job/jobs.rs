@@ -1,7 +1,9 @@
-use super::{Process, Status};
+use super::{Process, Signal, Status};
 use crate::redirect::Output;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
+
+use anyhow::Context;
 
 #[derive(Debug)]
 pub struct SharedJobs(Arc<Mutex<Jobs>>);
@@ -17,7 +19,7 @@ impl SharedJobs {
 
     pub fn with<F, T>(&self, f: F) -> anyhow::Result<T>
     where
-        F: FnOnce(&mut Jobs) -> anyhow::Result<T>
+        F: FnOnce(&mut Jobs) -> anyhow::Result<T>,
     {
         let mut lock = match self.0.lock() {
             Ok(l) => l,
@@ -67,14 +69,68 @@ impl Jobs {
 
     pub fn wait_fg(&mut self) -> anyhow::Result<Option<Status>> {
         let res = match self.0.get(&0) {
-            Some(proc) => Ok(Some(proc.wait()?)),
-            None => Ok(None),
+            Some(proc) => Some(proc.wait()?),
+            None => None,
         };
-        self.0.remove(&0);
-        res
+        let res = match res {
+            // Don't delete process if signaled "Stop".
+            Some(Status::Signaled(Signal::SIGSTOP))
+            | Some(Status::Signaled(Signal::SIGTSTP))
+            | Some(Status::Signaled(Signal::SIGTTIN))
+            | Some(Status::Signaled(Signal::SIGTTOU)) => None,
+            Some(_) => {
+                self.0.remove(&0);
+                res
+            }
+            None => None,
+        };
+        Ok(res)
     }
 
-    pub fn pop(&mut self, id: usize) -> Option<Process> {
-        self.0.remove(&id)
+    pub fn interrupt(&mut self, id: usize) -> anyhow::Result<Option<Status>> {
+        let proc = self.0.remove(&id);
+        if let Some(proc) = proc {
+            proc.interrupt().map(|s| Some(s))
+        } else {
+            Ok(None)
+        }
+    }
+
+    pub fn suspend(&mut self, id: usize) -> anyhow::Result<Option<(usize, i32)>> {
+        let proc = self.0.remove(&id);
+        if let Some(mut proc) = proc {
+            proc.suspend()?;
+            let id = if id == 0 { self.get_available_id() } else { id };
+            self.0.insert(id, proc);
+            Ok(Some((id, proc.pid())))
+        } else {
+            Ok(None)
+        }
+    }
+
+    pub fn to_fg(&mut self, id: usize) -> anyhow::Result<()> {
+        if id == 0 {
+            return Ok(());
+        }
+
+        if self.0.contains_key(&0) {
+            anyhow::bail!("The foreground process is already exist.");
+        }
+
+        let mut proc = self.0.remove(&id).context("Can't find such a process.")?;
+        if proc.suspended() {
+            proc.restart()?;
+        }
+
+        self.0.insert(0, proc);
+        Ok(())
+    }
+
+    pub fn from_pid(&self, pid: i32) -> Option<usize> {
+        self.0.iter().find(|(_, v)| v.pid() == pid).map(|(k, _)| *k)
+    }
+
+    fn get_available_id(&self) -> usize {
+        (1..).find(|i| !self.0.contains_key(&i)).unwrap()
     }
 }
