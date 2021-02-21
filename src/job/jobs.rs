@@ -1,4 +1,4 @@
-use super::{Process, Signal, Status};
+use super::{Process, Status};
 use crate::redirect::Output;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
@@ -74,10 +74,7 @@ impl Jobs {
         };
         let res = match res {
             // Don't delete process if signaled "Stop".
-            Some(Status::Signaled(Signal::SIGSTOP))
-            | Some(Status::Signaled(Signal::SIGTSTP))
-            | Some(Status::Signaled(Signal::SIGTTIN))
-            | Some(Status::Signaled(Signal::SIGTTOU)) => None,
+            Some(status) if status.stopped() => None,
             Some(_) => {
                 self.0.remove(&0);
                 res
