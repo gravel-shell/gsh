@@ -1,5 +1,5 @@
 use crate::job::CurPid;
-use crate::shell::{Cmd, Parsed};
+use crate::parse::{Parsed, parse_line};
 
 pub struct Session<T> {
     reader: T,
@@ -37,7 +37,7 @@ impl<T: Reader> Session<T> {
         };
 
         let cmd = loop {
-            match Cmd::parse(line.as_str()) {
+            match parse_line(line.as_str()) {
                 Ok(Parsed::Complete(cmd)) => break cmd,
                 Ok(Parsed::Yet) => {
                     let additional = match self.reader.more_line() {

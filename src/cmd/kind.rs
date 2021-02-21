@@ -1,6 +1,42 @@
-use super::Output;
+use crate::redirect::Output;
 use crate::job::Pid;
 use anyhow::Context;
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum CmdKind {
+    Empty,
+    Exit,
+    Cd,
+    Fg,
+    Cmd(String),
+}
+
+impl CmdKind {
+    pub fn new<T: AsRef<str>>(name: T) -> Self {
+        match name.as_ref() {
+            "exit" => Self::Exit,
+            "cd" => Self::Cd,
+            "fg" => Self::Fg,
+            s => Self::Cmd(s.into()),
+        }
+    }
+
+    pub fn exec(self, args: Vec<String>, output: Output) -> anyhow::Result<Option<Pid>> {
+        Ok(match self {
+            CmdKind::Empty => None,
+            CmdKind::Exit => {
+                exit(args)?;
+                None
+            }
+            CmdKind::Cd => {
+                cd(args)?;
+                None
+            }
+            CmdKind::Fg => Some(fg(args)?),
+            CmdKind::Cmd(ref name) => Some(cmd(name, args, output)?),
+        })
+    }
+}
 
 pub fn exit(args: Vec<String>) -> anyhow::Result<()> {
     let code = match args.len() {
@@ -39,21 +75,21 @@ pub fn fg(args: Vec<String>) -> anyhow::Result<Pid> {
 }
 
 pub fn cmd(name: &str, args: Vec<String>, output: Output) -> anyhow::Result<Pid> {
-    use super::redirect::*;
+    use crate::redirect::*;
     use std::io::copy;
     use std::process::{Command, Stdio};
     let mut child = Command::new(name);
     child.args(args);
 
-    if output.stdin != super::RedIn::Stdin {
+    if output.stdin != RedIn::Stdin {
         child.stdin(Stdio::piped());
     }
 
-    if output.stdout != super::RedOut::stdout() {
+    if output.stdout != RedOut::stdout() {
         child.stdout(Stdio::piped());
     }
 
-    if output.stderr != super::RedOut::stderr() {
+    if output.stderr != RedOut::stderr() {
         child.stderr(Stdio::piped());
     }
 

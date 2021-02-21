@@ -1,8 +1,9 @@
+extern crate unindent;
 extern crate combine;
 extern crate either;
 
 use super::redirect::{RedFile, RedKind, RedOutMode, Redirect};
-use super::{Cmd, CmdKind};
+use crate::cmd::{Cmd, CmdKind};
 use combine::parser::char;
 use combine::parser::repeat::skip_until;
 use combine::{
