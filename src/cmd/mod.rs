@@ -3,7 +3,7 @@ mod kind;
 pub use kind::CmdKind;
 
 use crate::redirect::{Output, Redirect};
-use crate::job::Pid;
+use crate::job::Jobs;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Cmd {
@@ -21,14 +21,14 @@ impl Cmd {
         }
     }
 
-    pub fn exec(self) -> anyhow::Result<Option<Pid>> {
+    pub fn exec(self, jobs: &mut Jobs) -> anyhow::Result<()> {
         let Cmd {
             kind,
             args,
             redirects,
         } = self;
         let output = Output::from(redirects)?;
-        kind.exec(args, output)
+        kind.exec(jobs, args, output)
     }
 }
 

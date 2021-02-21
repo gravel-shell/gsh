@@ -1,10 +1,10 @@
 extern crate nix;
 
-mod cur_pid;
-mod pid;
+mod jobs;
+mod process;
 mod status;
 
-pub use cur_pid::CurPid;
+pub use jobs::{Jobs, SharedJobs};
 pub use nix::sys::signal::Signal;
-pub use pid::Pid;
+pub use process::Process;
 pub use status::Status;

@@ -1,7 +1,7 @@
 extern crate rustyline;
 extern crate signal_hook;
 
-use crate::job::CurPid;
+use crate::job::SharedJobs;
 use crate::session::{MoreLine, Reader};
 use anyhow::Context;
 use rustyline::{error::ReadlineError, Editor};
@@ -13,8 +13,8 @@ use std::thread;
 pub struct PromptReader(Editor<()>);
 
 impl Reader for PromptReader {
-    fn init(cur_pid: &CurPid) -> anyhow::Result<Self> {
-        sighook(cur_pid)?;
+    fn init(jobs: &SharedJobs) -> anyhow::Result<Self> {
+        sighook(jobs)?;
         Ok(Self(Editor::<()>::new()))
     }
 
@@ -36,27 +36,30 @@ impl Reader for PromptReader {
     }
 }
 
-fn sighook(child_id: &CurPid) -> anyhow::Result<()> {
+fn sighook(jobs: &SharedJobs) -> anyhow::Result<()> {
     let mut signals = Signals::new(&[signal::SIGINT, signal::SIGTSTP])
         .context("Failed to initialize signals.")?;
 
-    let child_id = child_id.clone();
+    let jobs = jobs.clone();
     thread::spawn(move || {
         for sig in signals.forever() {
-            let child = child_id.get().unwrap();
-            if let Some(id) = child {
-                match sig {
-                    signal::SIGINT => {
+            let mut tmp_jobs = jobs.get().unwrap();
+            match sig {
+                signal::SIGINT => {
+                    let proc = tmp_jobs.pop(0);
+                    if let Some(id) = proc {
                         id.interrupt().unwrap();
                         println!("\nInterrupt");
                     }
-                    signal::SIGTSTP => {
-                        id.suspend().unwrap();
-                        println!("\nSuspend: {}", id);
-                    }
-                    _ => unreachable!(),
                 }
+                signal::SIGTSTP => {
+                    // proc.suspend().unwrap();
+                    // cur_proc.store(proc).unwrap();
+                    // println!("\nSuspend: {}", proc);
+                }
+                _ => unreachable!(),
             }
+            jobs.store(tmp_jobs).unwrap();
         }
     });
     Ok(())

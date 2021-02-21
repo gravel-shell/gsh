@@ -1,5 +1,5 @@
 use crate::redirect::Output;
-use crate::job::Pid;
+use crate::job::Jobs;
 use anyhow::Context;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -21,20 +21,17 @@ impl CmdKind {
         }
     }
 
-    pub fn exec(self, args: Vec<String>, output: Output) -> anyhow::Result<Option<Pid>> {
-        Ok(match self {
-            CmdKind::Empty => None,
-            CmdKind::Exit => {
-                exit(args)?;
-                None
-            }
-            CmdKind::Cd => {
-                cd(args)?;
-                None
-            }
-            CmdKind::Fg => Some(fg(args)?),
-            CmdKind::Cmd(ref name) => Some(cmd(name, args, output)?),
-        })
+    pub fn exec(self, jobs: &mut Jobs, args: Vec<String>, output: Output) -> anyhow::Result<()> {
+        match self {
+            CmdKind::Empty => (),
+            CmdKind::Exit => exit(args)?,
+            CmdKind::Cd => cd(args)?,
+            // CmdKind::Fg => fg(args, jobs)?,
+            CmdKind::Fg => (),
+            CmdKind::Cmd(ref name) => jobs.new_fg(name, args, output)?,
+        }
+
+        Ok(())
     }
 }
 
@@ -61,79 +58,15 @@ pub fn cd(args: Vec<String>) -> anyhow::Result<()> {
     Ok(())
 }
 
-pub fn fg(args: Vec<String>) -> anyhow::Result<Pid> {
-    if args.len() != 1 {
-        anyhow::bail!("Unexpected args number.");
-    }
+// pub fn fg(args: Vec<String>) -> anyhow::Result<()> {
+//     if args.len() != 1 {
+//         anyhow::bail!("Unexpected args number.");
+//     }
 
-    let id = args.into_iter().next().unwrap();
+//     let id = args.into_iter().next().unwrap();
 
-    let id = id.parse::<Pid>().context("Failed to parse a number.")?;
-    id.restart()?;
+//     let mut id = id.parse::<Process>().context("Failed to parse a number.")?;
+//     id.restart()?;
 
-    Ok(id)
-}
-
-pub fn cmd(name: &str, args: Vec<String>, output: Output) -> anyhow::Result<Pid> {
-    use crate::redirect::*;
-    use std::io::copy;
-    use std::process::{Command, Stdio};
-    let mut child = Command::new(name);
-    child.args(args);
-
-    if output.stdin != RedIn::Stdin {
-        child.stdin(Stdio::piped());
-    }
-
-    if output.stdout != RedOut::stdout() {
-        child.stdout(Stdio::piped());
-    }
-
-    if output.stderr != RedOut::stderr() {
-        child.stderr(Stdio::piped());
-    }
-
-    let child = child
-        .spawn()
-        .context(format!("Invalid command: {}", name))?;
-
-    let id = Pid::from(child.id() as i32);
-
-    let Output {
-        stdin,
-        stdout,
-        stderr,
-    } = output;
-
-    if stdin != RedIn::Stdin {
-        std::io::copy(&mut stdin.to_reader()?, &mut child.stdin.unwrap())
-            .context("Failed to redirect")?;
-    }
-
-    match (stdout.kind.clone(), stderr.kind.clone()) {
-        (RedOutKind::Stdout, RedOutKind::Stderr) => {}
-        (RedOutKind::Stdout, _) => {
-            copy(&mut child.stderr.unwrap(), &mut stderr.to_writer()?)
-                .context("Failed to redirect")?;
-        }
-        (_, RedOutKind::Stderr) => {
-            copy(&mut child.stdout.unwrap(), &mut stdout.to_writer()?)
-                .context("Failed to redirect")?;
-        }
-        (RedOutKind::File(out), RedOutKind::File(err))
-            if out == err && stdout.mode == stderr.mode =>
-        {
-            let mut writer = stdout.to_writer()?;
-            copy(&mut child.stdout.unwrap(), &mut writer).context("Failed to redirect")?;
-            copy(&mut child.stderr.unwrap(), &mut writer).context("Failed to redirect")?;
-        }
-        (_, _) => {
-            copy(&mut child.stderr.unwrap(), &mut stderr.to_writer()?)
-                .context("Failed to redirect")?;
-            copy(&mut child.stdout.unwrap(), &mut stdout.to_writer()?)
-                .context("Failed to redirect")?;
-        }
-    };
-
-    Ok(id)
-}
+//     Ok(id)
+// }

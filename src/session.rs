@@ -1,9 +1,9 @@
-use crate::job::CurPid;
+use crate::job::SharedJobs;
 use crate::parse::{Parsed, parse_line};
 
 pub struct Session<T> {
     reader: T,
-    cur_pid: CurPid,
+    jobs: SharedJobs,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -13,17 +13,17 @@ pub enum MoreLine {
 }
 
 pub trait Reader: Sized {
-    fn init(cur_pid: &CurPid) -> anyhow::Result<Self>;
+    fn init(jobs: &SharedJobs) -> anyhow::Result<Self>;
     fn next_line(&mut self) -> anyhow::Result<String>;
     fn more_line(&mut self) -> anyhow::Result<MoreLine>;
 }
 
 impl<T: Reader> Session<T> {
     pub fn new() -> anyhow::Result<Self> {
-        let cur_pid = CurPid::new();
+        let jobs = SharedJobs::new();
         Ok(Self {
-            reader: T::init(&cur_pid)?,
-            cur_pid,
+            reader: T::init(&jobs)?,
+            jobs,
         })
     }
 
@@ -59,18 +59,18 @@ impl<T: Reader> Session<T> {
             }
         };
 
-        let id = match cmd.exec() {
-            Ok(Some(id)) => id,
-            Ok(None) => return Ok(true),
+        let mut jobs = self.jobs.get()?;
+        match cmd.exec(&mut jobs) {
+            Ok(_) => (),
             Err(e) => {
                 eprintln!("{}", e);
                 return Ok(true);
             }
-        };
-
-        self.cur_pid.store(id)?;
-        id.wait()?;
-        self.cur_pid.reset()?;
+        }
+        eprintln!("{:?}", jobs);
+        self.jobs.store(jobs.clone())?;
+        jobs.wait_fg()?;
+        self.jobs.store(jobs)?;
 
         Ok(true)
     }
