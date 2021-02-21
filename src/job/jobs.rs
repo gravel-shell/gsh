@@ -67,12 +67,16 @@ impl Jobs {
         Ok(())
     }
 
-    pub fn new_bg(&mut self, name: &str, args: Vec<String>, output: Output) -> anyhow::Result<(usize, i32)> {
+    pub fn new_bg(
+        &mut self,
+        name: &str,
+        args: Vec<String>,
+        output: Output,
+    ) -> anyhow::Result<(usize, i32)> {
         let id = self.get_available_id();
         let proc = Process::new_cmd(name, args, output)?;
         self.0.insert(id, proc);
         Ok((id, proc.pid()))
-
     }
 
     pub fn wait_fg(&mut self) -> anyhow::Result<Option<Status>> {
@@ -88,7 +92,7 @@ impl Jobs {
                 proc.suspended = true;
                 self.0.insert(id, proc);
                 res
-            },
+            }
             Some(_) => {
                 self.0.remove(&0);
                 res

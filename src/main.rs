@@ -4,8 +4,8 @@ mod cmd;
 mod job;
 mod parse;
 mod prompt;
-mod session;
 mod redirect;
+mod session;
 
 fn inner_main() -> anyhow::Result<()> {
     let mut session = session::Session::<prompt::PromptReader>::new()?;

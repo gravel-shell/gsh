@@ -1,6 +1,6 @@
-extern crate unindent;
 extern crate combine;
 extern crate either;
+extern crate unindent;
 
 use super::redirect::{RedFile, RedKind, RedOutMode, Redirect};
 use crate::cmd::{Cmd, CmdKind};

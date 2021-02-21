@@ -2,8 +2,8 @@ mod kind;
 
 pub use kind::CmdKind;
 
-use crate::redirect::{Output, Redirect};
 use crate::job::Jobs;
+use crate::redirect::{Output, Redirect};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Cmd {
@@ -31,4 +31,3 @@ impl Cmd {
         kind.exec(jobs, args, output)
     }
 }
-

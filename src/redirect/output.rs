@@ -1,4 +1,4 @@
-use super::{RedIn, RedOut, Redirect, RedKind};
+use super::{RedIn, RedKind, RedOut, Redirect};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Output {

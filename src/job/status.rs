@@ -23,7 +23,7 @@ impl Status {
             | Self::Signaled(Signal::SIGTSTP)
             | Self::Signaled(Signal::SIGTTIN)
             | Self::Signaled(Signal::SIGTTOU) => true,
-            _ => false
+            _ => false,
         }
     }
 

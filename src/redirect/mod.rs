@@ -1,18 +1,17 @@
-mod kind;
 mod file;
-mod output;
-mod out;
 mod in_;
+mod kind;
+mod out;
+mod output;
 
-pub use kind::RedKind;
 pub use file::RedFile;
-pub use output::Output;
-pub use out::{RedOut, RedOutKind, RedOutMode};
 pub use in_::RedIn;
+pub use kind::RedKind;
+pub use out::{RedOut, RedOutKind, RedOutMode};
+pub use output::Output;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Redirect {
     pub kind: RedKind,
     pub file: RedFile,
 }
-

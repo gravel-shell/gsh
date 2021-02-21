@@ -1,5 +1,5 @@
 use crate::job::SharedJobs;
-use crate::parse::{Parsed, parse_line};
+use crate::parse::{parse_line, Parsed};
 
 pub struct Session<T> {
     reader: T,

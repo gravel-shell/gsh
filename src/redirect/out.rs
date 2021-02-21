@@ -105,4 +105,3 @@ impl io::Write for RedOutWriter {
         }
     }
 }
-
