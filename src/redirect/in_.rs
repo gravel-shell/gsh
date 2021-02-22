@@ -19,5 +19,4 @@ impl RedIn {
             RedFile::File(s) => Self::File(s),
         })
     }
-
 }

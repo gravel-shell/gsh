@@ -122,7 +122,9 @@ impl Process {
             }
 
             match stderr.kind {
-                RedOutKind::Stdout => {child.stderr(Stdio::piped());}
+                RedOutKind::Stdout => {
+                    child.stderr(Stdio::piped());
+                }
                 RedOutKind::Stderr => {}
                 RedOutKind::Null => {
                     child.stderr(Stdio::from(option(stderr.mode).open("/dev/null")?));
