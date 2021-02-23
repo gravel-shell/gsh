@@ -1,33 +1,47 @@
 mod kind;
+mod redirect;
 
 pub use kind::CmdKind;
+pub use redirect::Redirects;
 
 use crate::job::Jobs;
-use crate::redirect::{Output, Redirect};
+use crate::parse::{Arg, Command as ParseCmd, Redirect};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Cmd {
+pub struct Command {
     pub kind: CmdKind,
     pub args: Vec<String>,
-    pub redirects: Vec<Redirect>,
+    pub reds: Vec<Redirect>,
 }
 
-impl Cmd {
-    pub fn empty() -> Self {
-        Self {
-            kind: CmdKind::Empty,
-            args: Vec::new(),
-            redirects: Vec::new(),
+impl From<ParseCmd> for Command {
+    fn from(cmd: ParseCmd) -> Self {
+        let ParseCmd {
+            name,
+            args: arg_reds,
+        } = cmd;
+        let kind = CmdKind::new(name);
+        let mut args = Vec::new();
+        let mut reds = Vec::new();
+        for arg in arg_reds {
+            match arg {
+                Arg::Arg(s) => {
+                    args.push(s);
+                }
+                Arg::Redirect(r) => {
+                    reds.push(r);
+                }
+            }
         }
-    }
 
+        Self { kind, args, reds }
+    }
+}
+
+impl Command {
     pub fn exec(self, jobs: &mut Jobs) -> anyhow::Result<()> {
-        let Cmd {
-            kind,
-            args,
-            redirects,
-        } = self;
-        let output = Output::from(redirects)?;
-        kind.exec(jobs, args, output)
+        let Command { kind, args, reds } = self;
+        let reds = Redirects::new(reds);
+        kind.exec(jobs, args, reds)
     }
 }

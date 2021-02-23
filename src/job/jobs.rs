@@ -1,5 +1,5 @@
 use super::{Process, Status};
-use crate::redirect::Output;
+use crate::cmd::Redirects;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
@@ -58,12 +58,12 @@ impl Jobs {
         Self(HashMap::new())
     }
 
-    pub fn new_fg(&mut self, name: &str, args: Vec<String>, output: Output) -> anyhow::Result<()> {
+    pub fn new_fg(&mut self, name: &str, args: Vec<String>, reds: Redirects) -> anyhow::Result<()> {
         if self.0.contains_key(&0) {
             anyhow::bail!("The foreground process is already exist.");
         }
 
-        self.0.insert(0, Process::new_cmd(name, args, output)?);
+        self.0.insert(0, Process::new_cmd(name, args, reds)?);
         Ok(())
     }
 
@@ -71,10 +71,10 @@ impl Jobs {
         &mut self,
         name: &str,
         args: Vec<String>,
-        output: Output,
+        reds: Redirects,
     ) -> anyhow::Result<(usize, i32)> {
         let id = self.get_available_id();
-        let proc = Process::new_cmd(name, args, output)?;
+        let proc = Process::new_cmd(name, args, reds)?;
         self.0.insert(id, proc);
         Ok((id, proc.pid()))
     }

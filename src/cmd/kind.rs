@@ -1,5 +1,5 @@
 use crate::job::Jobs;
-use crate::redirect::Output;
+use super::Redirects;
 use anyhow::Context;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -16,6 +16,7 @@ pub enum CmdKind {
 impl CmdKind {
     pub fn new<T: AsRef<str>>(name: T) -> Self {
         match name.as_ref() {
+            "" => Self::Empty,
             "exit" => Self::Exit,
             "cd" => Self::Cd,
             "fg" => Self::Fg,
@@ -25,15 +26,15 @@ impl CmdKind {
         }
     }
 
-    pub fn exec(self, jobs: &mut Jobs, args: Vec<String>, output: Output) -> anyhow::Result<()> {
+    pub fn exec(self, jobs: &mut Jobs, args: Vec<String>, reds: Redirects) -> anyhow::Result<()> {
         match self {
             CmdKind::Empty => (),
             CmdKind::Exit => exit(args)?,
             CmdKind::Cd => cd(args)?,
             CmdKind::Fg => fg(args, jobs)?,
             CmdKind::Jobs => println!("{:#?}", jobs),
-            CmdKind::Spawn => spawn(args, output, jobs)?,
-            CmdKind::Cmd(ref name) => jobs.new_fg(name, args, output)?,
+            CmdKind::Spawn => spawn(args, reds, jobs)?,
+            CmdKind::Cmd(ref name) => jobs.new_fg(name, args, reds)?,
         }
 
         Ok(())
@@ -85,7 +86,7 @@ pub fn fg(args: Vec<String>, jobs: &mut Jobs) -> anyhow::Result<()> {
     Ok(())
 }
 
-pub fn spawn(args: Vec<String>, output: Output, jobs: &mut Jobs) -> anyhow::Result<()> {
+pub fn spawn(args: Vec<String>, reds: Redirects, jobs: &mut Jobs) -> anyhow::Result<()> {
     if args.len() == 0 {
         anyhow::bail!("Please specify the command to spawn.");
     }
@@ -94,7 +95,7 @@ pub fn spawn(args: Vec<String>, output: Output, jobs: &mut Jobs) -> anyhow::Resu
     let name = args.next().unwrap();
     let args = args.collect();
 
-    let (id, pid) = jobs.new_bg(&name, args, output)?;
+    let (id, pid) = jobs.new_bg(&name, args, reds)?;
 
     println!("Spawned a new background process: %{} ({})", id, pid);
 

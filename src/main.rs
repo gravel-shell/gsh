@@ -4,7 +4,6 @@ mod cmd;
 mod job;
 mod parse;
 mod prompt;
-mod redirect;
 mod session;
 
 fn inner_main() -> anyhow::Result<()> {

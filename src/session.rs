@@ -59,6 +59,8 @@ impl<T: Reader> Session<T> {
             }
         };
 
+        let cmd = crate::cmd::Command::from(cmd);
+
         match self.jobs.with(|jobs| cmd.exec(jobs)) {
             Ok(_) => (),
             Err(e) => {
