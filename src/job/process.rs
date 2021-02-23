@@ -8,6 +8,8 @@ use std::fmt;
 use super::{Signal, Status};
 use crate::redirect::Output;
 
+static NULL: &str = "/dev/null";
+
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub struct Process {
     pub(super) pid: Pid,
@@ -97,7 +99,7 @@ impl Process {
 
         if matches!(stdout.kind, RedOutKind::Null | RedOutKind::File(_)) && stdout == stderr {
             let file = match stdout.kind {
-                RedOutKind::Null => "/dev/null",
+                RedOutKind::Null => NULL,
                 RedOutKind::File(ref s) => s,
                 _ => unreachable!(),
             };
@@ -114,7 +116,7 @@ impl Process {
                     child.stdout(Stdio::piped());
                 }
                 RedOutKind::Null => {
-                    child.stdout(Stdio::from(option(stdout.mode).open("/dev/null")?));
+                    child.stdout(Stdio::from(option(stdout.mode).open(NULL)?));
                 }
                 RedOutKind::File(ref s) => {
                     child.stdout(Stdio::from(option(stdout.mode).open(s)?));
@@ -127,7 +129,7 @@ impl Process {
                 }
                 RedOutKind::Stderr => {}
                 RedOutKind::Null => {
-                    child.stderr(Stdio::from(option(stderr.mode).open("/dev/null")?));
+                    child.stderr(Stdio::from(option(stderr.mode).open(NULL)?));
                 }
                 RedOutKind::File(ref s) => {
                     child.stderr(Stdio::from(option(stderr.mode).open(s)?));
