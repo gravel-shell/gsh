@@ -1,5 +1,4 @@
 use super::{Process, Status};
-use crate::cmd::Redirects;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
@@ -58,25 +57,21 @@ impl Jobs {
         Self(HashMap::new())
     }
 
-    pub fn new_fg(&mut self, name: &str, args: Vec<String>, reds: Redirects) -> anyhow::Result<()> {
+    pub fn new_fg(&mut self, pid: i32) -> anyhow::Result<()> {
         if self.0.contains_key(&0) {
             anyhow::bail!("The foreground process is already exist.");
         }
 
-        self.0.insert(0, Process::new_cmd(name, args, reds)?);
+        self.0.insert(0, Process::from(pid));
         Ok(())
     }
 
-    pub fn new_bg(
-        &mut self,
-        name: &str,
-        args: Vec<String>,
-        reds: Redirects,
-    ) -> anyhow::Result<(usize, i32)> {
+    #[allow(dead_code)]
+    pub fn new_bg(&mut self, pid: i32) -> anyhow::Result<(usize, i32)> {
         let id = self.get_available_id();
-        let proc = Process::new_cmd(name, args, reds)?;
+        let proc = Process::from(pid);
         self.0.insert(id, proc);
-        Ok((id, proc.pid()))
+        Ok((id, pid))
     }
 
     pub fn wait_fg(&mut self) -> anyhow::Result<Option<Status>> {
@@ -112,7 +107,11 @@ impl Jobs {
             return Ok(());
         }
 
-        let id = self.from_pid(pid).context("Failed to catch SIGCHLD")?;
+        let id = match self.from_pid(pid) {
+            Some(id) => id,
+            None => return Ok(()),
+        };
+
         let mut proc = self.0.remove(&id).context("Failed to get the process.")?;
 
         match status {

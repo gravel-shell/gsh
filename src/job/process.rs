@@ -5,7 +5,6 @@ use nix::unistd::Pid;
 use std::convert::TryFrom;
 use std::fmt;
 
-use crate::cmd::Redirects;
 use super::{Signal, Status};
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
@@ -58,28 +57,6 @@ impl Into<Pid> for Process {
 }
 
 impl Process {
-    pub fn new_cmd(name: &str, args: Vec<String>, reds: Redirects) -> anyhow::Result<Self> {
-        use std::process::Command;
-
-        let mut child = Command::new(name);
-        child.args(args);
-
-        let heredoc = reds.redirect(&mut child)?;
-
-        let child = child
-            .spawn()
-            .context(format!("Invalid command: {}", name))?;
-
-        let process = Self::from(child.id() as i32);
-
-        if let Some(s) = heredoc {
-            use std::io::Write;
-            child.stdin.unwrap().write_all(s.as_bytes())?;
-        }
-
-        Ok(process)
-    }
-
     pub fn pid(&self) -> i32 {
         self.pid.as_raw()
     }

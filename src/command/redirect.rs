@@ -1,4 +1,4 @@
-use crate::parse::{Redirect, RedKind, RedTarget};
+use crate::parse::{RedKind, RedTarget, Redirect};
 use std::fs::{File, OpenOptions};
 use std::process::{Command, Stdio};
 
@@ -10,8 +10,13 @@ impl Redirects {
         Self(RedirectsInner::new(reds))
     }
 
-    pub fn redirect(self, cmd: &mut Command) -> anyhow::Result<Option<String>> {
-        self.0.redirect(cmd)
+    pub fn redirect(
+        &self,
+        cmd: &mut Command,
+        piped_in: bool,
+        piped_out: bool,
+    ) -> anyhow::Result<Option<&[u8]>> {
+        self.0.redirect(cmd, piped_in, piped_out)
     }
 }
 
@@ -61,13 +66,13 @@ impl RedirectsInner {
                 RedKind::Stdin => {
                     stdin = Some(RedIn {
                         mode: InMode::Normal,
-                        target: target2str(red.target)
+                        target: target2str(red.target),
                     });
                 }
                 RedKind::HereDoc => {
                     stdin = Some(RedIn {
                         mode: InMode::HereDoc,
-                        target: target2str(red.target)
+                        target: target2str(red.target),
                     });
                 }
             }
@@ -80,24 +85,41 @@ impl RedirectsInner {
         }
     }
 
-    fn redirect(self, cmd: &mut Command) -> anyhow::Result<Option<String>> {
+    fn redirect(
+        &self,
+        cmd: &mut Command,
+        piped_in: bool,
+        piped_out: bool,
+    ) -> anyhow::Result<Option<&[u8]>> {
         let stdin = match self {
+            Self::Bind(stdin, Some(stdout)) if piped_out => {
+                let err = stdout.mode.option().open(&stdout.target)?;
+                cmd.stdout(Stdio::piped());
+                cmd.stderr(Stdio::from(err));
+                stdin
+            }
             Self::Bind(stdin, Some(stdout)) => {
-                let out = stdout.mode.option().open(stdout.target)?;
+                let out = stdout.mode.option().open(&stdout.target)?;
                 let err = out.try_clone()?;
                 cmd.stdout(Stdio::from(out));
                 cmd.stderr(Stdio::from(err));
                 stdin
             }
+            Self::Bind(stdin, None) if piped_out => {
+                cmd.stdout(Stdio::piped());
+                stdin
+            }
             Self::Bind(stdin, None) => stdin,
             Self::Each(stdin, stdout, stderr) => {
-                if let Some(stdout) = stdout {
-                    let out = stdout.mode.option().open(stdout.target)?;
+                if piped_out {
+                    cmd.stdout(Stdio::piped());
+                } else if let Some(stdout) = stdout {
+                    let out = stdout.mode.option().open(&stdout.target)?;
                     cmd.stdout(Stdio::from(out));
                 }
 
                 if let Some(stderr) = stderr {
-                    let err = stderr.mode.option().open(stderr.target)?;
+                    let err = stderr.mode.option().open(&stderr.target)?;
                     cmd.stderr(Stdio::from(err));
                 }
 
@@ -106,14 +128,16 @@ impl RedirectsInner {
         };
 
         let mut s = None;
-        if let Some(stdin) = stdin {
+        if piped_in {
+            cmd.stdin(Stdio::piped());
+        } else if let Some(stdin) = stdin {
             match stdin.mode {
                 InMode::Normal => {
-                    cmd.stdin(Stdio::from(File::open(stdin.target)?));
+                    cmd.stdin(Stdio::from(File::open(&stdin.target)?));
                 }
                 InMode::HereDoc => {
                     cmd.stdin(Stdio::piped());
-                    s = Some(stdin.target);
+                    s = Some(stdin.target.as_bytes());
                 }
             }
         }
