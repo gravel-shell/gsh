@@ -26,6 +26,7 @@ impl Builtin {
             BuiltinKind::Cd => cd(&self.args)?,
             BuiltinKind::Fg => fg(&self.args, jobs)?,
             BuiltinKind::Jobs => println!("{:#?}", jobs),
+            BuiltinKind::Var => var(&self.args)?,
         }
 
         Ok(())
@@ -39,6 +40,7 @@ pub enum BuiltinKind {
     Cd,
     Fg,
     Jobs,
+    Var,
 }
 
 impl BuiltinKind {
@@ -49,6 +51,7 @@ impl BuiltinKind {
             "cd" => Self::Cd,
             "fg" => Self::Fg,
             "jobs" => Self::Jobs,
+            "var" => Self::Var,
             _ => return None,
         })
     }
@@ -98,6 +101,31 @@ pub fn fg<T: AsRef<str>, TS: AsRef<[T]>>(args: TS, jobs: &mut Jobs) -> anyhow::R
     };
 
     jobs.to_fg(id)?;
+
+    Ok(())
+}
+
+pub fn var<T: AsRef<str>, TS: AsRef<[T]>>(args: TS) -> anyhow::Result<()> {
+    use std::env;
+    let args = args.as_ref();
+    match args.len() {
+        0 => {
+            for (k, v) in env::vars() {
+                println!("{}={:?}", k, v);
+            }
+        },
+        1 => {
+            let key = args[0].as_ref();
+            let val = env::var(key)?;
+            println!("{}={:?}", key, val);
+        }
+        2 => {
+            let key = args[0].as_ref();
+            let val = args[1].as_ref();
+            env::set_var(key, val);
+        }
+        _ => anyhow::bail!("Unnexpected args number.")
+    }
 
     Ok(())
 }
