@@ -2,11 +2,18 @@ extern crate unindent;
 
 use combine::parser::char;
 use combine::parser::repeat::skip_until;
-use combine::{attempt, choice, count_min_max, many, many1, one_of, satisfy, token, value};
+use combine::{attempt, choice, count_min_max, skip_many, many, many1, one_of, satisfy, token, value};
 use combine::{Parser, Stream};
 use unindent::unindent;
 
 pub fn spaces<I: Stream<Token = char>>() -> impl Parser<I, Output = ()> {
+    token('#')
+        .and(skip_until(token('\n')))
+        .map(|_| ())
+        .or(skip_many(satisfy(|c: char| c.is_whitespace() && c != '\n')))
+}
+
+pub fn spaces_line<I: Stream<Token = char>>() -> impl Parser<I, Output = ()> {
     token('#')
         .and(skip_until(token('\n')))
         .map(|_| ())
@@ -19,7 +26,7 @@ pub fn string<I: Stream<Token = char>>() -> impl Parser<I, Output = String> {
         raw_str(),
         attempt(lit_unindent()),
         lit_str(),
-        many1(satisfy(|c: char| !c.is_whitespace() && c != '#' && c != '|' && c != '&' && c != ';' && c != '}')),
+        many1(satisfy(|c: char| !c.is_whitespace() && "#|&;}".chars().all(|d| c != d))),
     ))
 }
 

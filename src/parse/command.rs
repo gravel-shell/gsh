@@ -1,4 +1,4 @@
-use super::{spaces, string, Redirect};
+use super::{spaces, spaces_line, string, Redirect};
 use combine::{attempt, eof, optional, sep_end_by, token};
 use combine::{Parser, Stream};
 
@@ -25,7 +25,7 @@ impl Command {
     }
 
     fn parse_<I: Stream<Token = char>>() -> impl Parser<I, Output = Self> {
-        spaces().with(
+        spaces_line().with(
             eof().map(|_| Self::empty()).or((
                 string().skip(spaces()),
                 sep_end_by(Arg::parse(), spaces()),

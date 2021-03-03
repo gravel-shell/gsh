@@ -1,7 +1,7 @@
-use super::Command;
+use super::{spaces_line, Command};
 
-use combine::{Parser, Stream, choice};
-use combine::{sep_by, skip_many1, token};
+use combine::{choice, Parser, Stream};
+use combine::{sep_end_by, token};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Line {
@@ -16,14 +16,13 @@ impl Line {
             Command::parse().map(|cmd| Self::Single(cmd)),
         ))
     }
-
 }
 
 fn multi<I: Stream<Token = char>>() -> impl Parser<I, Output = Vec<Command>> {
-        token('{')
-            .with(sep_by(
-                Command::parse(),
-                skip_many1(token('\n').or(token(';'))),
-            ))
-            .skip(token('}'))
+    token('{')
+        .with(sep_end_by(
+            Command::parse(),
+            token('\n').or(token(';')).with(spaces_line()),
+        ))
+        .skip(token('}'))
 }

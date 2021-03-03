@@ -9,7 +9,7 @@ pub use command::{Arg, Command};
 pub use line::Line;
 pub use redirect::{RedKind, RedTarget, Redirect};
 
-use chars::{spaces, string};
+use chars::{spaces, spaces_line, string};
 use combine::{EasyParser, ParseError};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
