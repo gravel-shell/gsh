@@ -2,12 +2,10 @@ extern crate combine;
 
 mod chars;
 mod command;
-mod flow;
 mod line;
 mod redirect;
 
 pub use command::{Arg, Command};
-pub use flow::Flow;
 pub use line::Line;
 pub use redirect::{RedKind, RedTarget, Redirect};
 
