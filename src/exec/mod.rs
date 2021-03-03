@@ -4,6 +4,7 @@ pub use command::Command;
 
 use crate::parse::Line;
 use crate::job::SharedJobs;
+use crate::session::Vars;
 
 pub enum Object {
     Multi(Vec<Object>),
@@ -20,16 +21,18 @@ impl From<Line> for Object {
 }
 
 impl Object {
-    pub fn exec(&self, jobs: &SharedJobs) -> anyhow::Result<()> {
+    pub fn exec(&self, jobs: &SharedJobs, vars: &mut Vars) -> anyhow::Result<()> {
         match self {
             Self::Multi(lines) => {
+                vars.mark();
                 for line in lines.iter() {
-                    line.exec(jobs)?;
+                    line.exec(jobs, vars)?;
                 }
+                vars.drop();
                 Ok(())
             },
             Self::Single(cmd) => {
-                jobs.with(|jobs| cmd.exec(jobs))?;
+                jobs.with(|jobs| cmd.exec(jobs, vars))?;
                 jobs.wait_fg()?;
                 Ok(())
             }

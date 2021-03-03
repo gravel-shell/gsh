@@ -1,4 +1,5 @@
 use crate::job::Jobs;
+use crate::session::Vars;
 use anyhow::Context;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -19,15 +20,15 @@ impl Builtin {
         }
     }
 
-    pub fn exec(&self, jobs: &mut Jobs) -> anyhow::Result<()> {
+    pub fn exec(&self, jobs: &mut Jobs, vars: &mut Vars) -> anyhow::Result<()> {
         match self.kind {
             BuiltinKind::Empty => (),
             BuiltinKind::Exit => exit(&self.args)?,
             BuiltinKind::Cd => cd(&self.args)?,
             BuiltinKind::Fg => fg(&self.args, jobs)?,
             BuiltinKind::Jobs => println!("{:#?}", jobs),
-            BuiltinKind::Var => var(&self.args)?,
-            BuiltinKind::GVar => gvar(&self.args)?,
+            BuiltinKind::Var => var(&self.args, vars)?,
+            BuiltinKind::GVar => gvar(&self.args, vars)?,
         }
 
         Ok(())
@@ -108,52 +109,22 @@ pub fn fg<T: AsRef<str>, TS: AsRef<[T]>>(args: TS, jobs: &mut Jobs) -> anyhow::R
     Ok(())
 }
 
-pub fn var<T: AsRef<str>, TS: AsRef<[T]>>(args: TS) -> anyhow::Result<()> {
-    use std::env;
+pub fn var<T: AsRef<str>, TS: AsRef<[T]>>(args: TS, vars: &mut Vars) -> anyhow::Result<()> {
     let args = args.as_ref();
-    match args.len() {
-        0 => {
-            for (k, v) in env::vars() {
-                println!("{}={:?}", k, v);
-            }
-        },
-        1 => {
-            let key = args[0].as_ref();
-            let val = env::var(key)?;
-            println!("{}={:?}", key, val);
-        }
-        2 => {
-            let key = args[0].as_ref();
-            let val = args[1].as_ref();
-            env::set_var(key, val);
-        }
-        _ => anyhow::bail!("Unnexpected args number.")
+    if args.len() != 2 {
+        anyhow::bail!("Unnexpected args number.");
     }
 
+    vars.push(args[0].as_ref(), args[1].as_ref());
     Ok(())
 }
 
-pub fn gvar<T: AsRef<str>, TS: AsRef<[T]>>(args: TS) -> anyhow::Result<()> {
-    use std::env;
+pub fn gvar<T: AsRef<str>, TS: AsRef<[T]>>(args: TS, vars: &mut Vars) -> anyhow::Result<()> {
     let args = args.as_ref();
-    match args.len() {
-        0 => {
-            for (k, v) in env::vars() {
-                println!("{}={:?}", k, v);
-            }
-        },
-        1 => {
-            let key = args[0].as_ref();
-            let val = env::var(key)?;
-            println!("{}={:?}", key, val);
-        }
-        2 => {
-            let key = args[0].as_ref();
-            let val = args[1].as_ref();
-            env::set_var(key, val);
-        }
-        _ => anyhow::bail!("Unnexpected args number.")
+    if args.len() != 2 {
+        anyhow::bail!("Unnexpected args number.");
     }
 
+    vars.gpush(args[0].as_ref(), args[1].as_ref());
     Ok(())
 }

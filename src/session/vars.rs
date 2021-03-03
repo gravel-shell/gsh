@@ -14,7 +14,7 @@ impl Vars {
         self.keys.push(key);
     }
 
-    pub fn gpush<T: AsRef<str>, U: AsRef<str>>(&mut self, key: T, value: T) {
+    pub fn gpush<T: AsRef<str>, U: AsRef<str>>(&mut self, key: T, value: U) {
         let key = key.as_ref();
         let value = value.as_ref();
         env::set_var(key, value);

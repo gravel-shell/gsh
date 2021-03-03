@@ -8,6 +8,7 @@ pub use redirect::Redirects;
 
 use crate::job::Jobs;
 use crate::parse::{Arg, Command as ParseCmd};
+use crate::session::Vars;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Command {
@@ -49,9 +50,9 @@ impl From<ParseCmd> for Command {
 }
 
 impl Command {
-    pub fn exec(&self, jobs: &mut Jobs) -> anyhow::Result<()> {
+    pub fn exec(&self, jobs: &mut Jobs, vars: &mut Vars) -> anyhow::Result<()> {
         match self {
-            Self::Builtin(ref builtin) => builtin.exec(jobs),
+            Self::Builtin(ref builtin) => builtin.exec(jobs, vars),
             Self::External(ref external) => external.exec(jobs),
         }
     }

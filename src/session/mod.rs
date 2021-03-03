@@ -69,7 +69,7 @@ impl<T: Reader> Session<T> {
         eprintln!("{:?}", line);
         let obj = Object::from(line);
 
-        match obj.exec(&self.jobs) {
+        match obj.exec(&self.jobs, &mut self.vars) {
             Ok(_) => (),
             Err(e) => {
                 eprintln!("{}", e);
