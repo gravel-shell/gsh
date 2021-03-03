@@ -25,17 +25,13 @@ impl Object {
             Self::Multi(cmds) => {
                 for cmd in cmds.iter() {
                     jobs.with(|jobs| cmd.exec(jobs))?;
-                    let mut j = jobs.get()?;
-                    j.wait_fg()?;
-                    jobs.store(j)?;
+                    jobs.wait_fg()?;
                 }
                 Ok(())
             },
             Self::Single(cmd) => {
                 jobs.with(|jobs| cmd.exec(jobs))?;
-                let mut j = jobs.get()?;
-                j.wait_fg()?;
-                jobs.store(j)?;
+                jobs.wait_fg()?;
                 Ok(())
             }
         }

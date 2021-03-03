@@ -28,6 +28,13 @@ impl SharedJobs {
         f(&mut lock)
     }
 
+    pub fn wait_fg(&self) -> anyhow::Result<Option<Status>> {
+        let mut jobs = self.get()?;
+        let status = jobs.wait_fg()?;
+        self.store(jobs)?;
+        Ok(status)
+    }
+
     pub fn get(&self) -> anyhow::Result<Jobs> {
         let lock = match self.0.lock() {
             Ok(l) => l,
