@@ -27,17 +27,16 @@ pub fn string<I: Stream<Token = char>>() -> impl Parser<I, Output = String> {
         attempt(raw_unindent()),
         raw_str(),
         attempt(lit_unindent()),
-        lit_str(),
+        lit(),
         direct(),
     ))
 }
 
-pub fn direct<I: Stream<Token = char>>() -> impl Parser<I, Output = String> {
-    many1(token('$').with(env()).or(direct_str()))
-        .map(|strs: Vec<String>| strs.iter().flat_map(|s| s.chars()).collect())
+fn direct<I: Stream<Token = char>>() -> impl Parser<I, Output = String> {
+    many1(env().or(direct_str()))
 }
 
-pub fn direct_str<I: Stream<Token = char>>() -> impl Parser<I, Output = String> {
+fn direct_str<I: Stream<Token = char>>() -> impl Parser<I, Output = String> {
     many1(satisfy(|c: char| {
         !c.is_whitespace() && "#|&;${}()".chars().all(|d| c != d)
     }))
@@ -45,16 +44,19 @@ pub fn direct_str<I: Stream<Token = char>>() -> impl Parser<I, Output = String> 
 
 fn lit_unindent<I: Stream<Token = char>>() -> impl Parser<I, Output = String> {
     char::string("\"\"")
-        .with(lit_str())
+        .with(lit())
         .skip(char::string("\"\""))
         .map(|s| unindent(&s))
+}
+
+fn lit<I: Stream<Token = char>>() -> impl Parser<I, Output = String> {
+    token('"').with(many(env().or(lit_str()))).skip(token('"'))
 }
 
 fn lit_str<I: Stream<Token = char>>() -> impl Parser<I, Output = String> {
     use std::convert::TryFrom;
 
-    token('"')
-        .with(many(satisfy(|c| c != '"').then(|c| {
+    many1(satisfy(|c| c != '"' && c != '$').then(|c| {
             if c == '\\' {
                 choice((
                     one_of("abefnrtv\\\"".chars()).map(|seq| match seq {
@@ -84,8 +86,7 @@ fn lit_str<I: Stream<Token = char>>() -> impl Parser<I, Output = String> {
             } else {
                 value(c).right()
             }
-        })))
-        .skip(token('"'))
+        }))
 }
 
 fn raw_unindent<I: Stream<Token = char>>() -> impl Parser<I, Output = String> {
@@ -106,8 +107,8 @@ fn raw_str<I: Stream<Token = char>>() -> impl Parser<I, Output = String> {
 }
 
 fn env<I: Stream<Token = char>>() -> impl Parser<I, Output = String> {
-    token('{')
-        .with(many1(satisfy(|c| c != '}')))
-        .skip(token('}'))
+    token('$')
+        .with(many1(satisfy(|c| c != ';')))
+        .skip(token(';'))
         .map(|s: String| std::env::var(s).unwrap())
 }
