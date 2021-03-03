@@ -2,7 +2,9 @@ extern crate unindent;
 
 use combine::parser::char;
 use combine::parser::repeat::skip_until;
-use combine::{attempt, choice, count_min_max, skip_many, many, many1, one_of, satisfy, token, value};
+use combine::{
+    attempt, choice, count_min_max, many, many1, one_of, satisfy, skip_many, token, value,
+};
 use combine::{Parser, Stream};
 use unindent::unindent;
 
@@ -26,8 +28,19 @@ pub fn string<I: Stream<Token = char>>() -> impl Parser<I, Output = String> {
         raw_str(),
         attempt(lit_unindent()),
         lit_str(),
-        many1(satisfy(|c: char| !c.is_whitespace() && "#|&;}".chars().all(|d| c != d))),
+        direct(),
     ))
+}
+
+pub fn direct<I: Stream<Token = char>>() -> impl Parser<I, Output = String> {
+    many1(token('$').with(env()).or(direct_str()))
+        .map(|strs: Vec<String>| strs.iter().flat_map(|s| s.chars()).collect())
+}
+
+pub fn direct_str<I: Stream<Token = char>>() -> impl Parser<I, Output = String> {
+    many1(satisfy(|c: char| {
+        !c.is_whitespace() && "#|&;${}()".chars().all(|d| c != d)
+    }))
 }
 
 fn lit_unindent<I: Stream<Token = char>>() -> impl Parser<I, Output = String> {
@@ -90,4 +103,11 @@ fn raw_str<I: Stream<Token = char>>() -> impl Parser<I, Output = String> {
             satisfy(|c| c != '\''),
         ))))
         .skip(token('\''))
+}
+
+fn env<I: Stream<Token = char>>() -> impl Parser<I, Output = String> {
+    token('{')
+        .with(many1(satisfy(|c| c != '}')))
+        .skip(token('}'))
+        .map(|s: String| std::env::var(s).unwrap())
 }
