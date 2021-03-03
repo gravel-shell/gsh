@@ -27,8 +27,8 @@ impl Builtin {
             BuiltinKind::Cd => cd(&self.args)?,
             BuiltinKind::Fg => fg(&self.args, jobs)?,
             BuiltinKind::Jobs => println!("{:#?}", jobs),
-            BuiltinKind::Var => var(&self.args, vars)?,
-            BuiltinKind::GVar => gvar(&self.args, vars)?,
+            BuiltinKind::Let => let_(&self.args, vars)?,
+            BuiltinKind::Export => export(&self.args, vars)?,
         }
 
         Ok(())
@@ -42,8 +42,8 @@ pub enum BuiltinKind {
     Cd,
     Fg,
     Jobs,
-    Var,
-    GVar,
+    Let,
+    Export,
 }
 
 impl BuiltinKind {
@@ -54,8 +54,8 @@ impl BuiltinKind {
             "cd" => Self::Cd,
             "fg" => Self::Fg,
             "jobs" => Self::Jobs,
-            "var" => Self::Var,
-            "gvar" => Self::GVar,
+            "let" => Self::Let,
+            "export" => Self::Export,
             _ => return None,
         })
     }
@@ -109,22 +109,30 @@ pub fn fg<T: AsRef<str>, TS: AsRef<[T]>>(args: TS, jobs: &mut Jobs) -> anyhow::R
     Ok(())
 }
 
-pub fn var<T: AsRef<str>, TS: AsRef<[T]>>(args: TS, vars: &mut Vars) -> anyhow::Result<()> {
+pub fn let_<T: AsRef<str>, TS: AsRef<[T]>>(args: TS, vars: &mut Vars) -> anyhow::Result<()> {
     let args = args.as_ref();
-    if args.len() != 2 {
+    if args.len() != 3 {
         anyhow::bail!("Unnexpected args number.");
     }
 
-    vars.push(args[0].as_ref(), args[1].as_ref());
+    if args[1].as_ref() != "=" {
+        anyhow::bail!("Missing \"=\".");
+    }
+
+    vars.push(args[0].as_ref(), args[2].as_ref());
     Ok(())
 }
 
-pub fn gvar<T: AsRef<str>, TS: AsRef<[T]>>(args: TS, vars: &mut Vars) -> anyhow::Result<()> {
+pub fn export<T: AsRef<str>, TS: AsRef<[T]>>(args: TS, vars: &mut Vars) -> anyhow::Result<()> {
     let args = args.as_ref();
-    if args.len() != 2 {
+    if args.len() != 3 {
         anyhow::bail!("Unnexpected args number.");
     }
 
-    vars.gpush(args[0].as_ref(), args[1].as_ref());
+    if args[1].as_ref() != "=" {
+        anyhow::bail!("Missing \"=\".");
+    }
+
+    vars.gpush(args[0].as_ref(), args[2].as_ref());
     Ok(())
 }
