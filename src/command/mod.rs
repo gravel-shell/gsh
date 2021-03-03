@@ -21,6 +21,7 @@ impl From<ParseCmd> for Command {
             name,
             args: arg_reds,
             pipe,
+            bg,
         } = cmd;
 
         let mut args = Vec::new();
@@ -43,15 +44,15 @@ impl From<ParseCmd> for Command {
 
         let reds = Redirects::new(reds);
         let pipe = pipe.map(|pipe| Box::new(External::from(*pipe)));
-        Self::External(External {name, args, reds, pipe })
+        Self::External(External {name, args, reds, pipe, bg})
     }
 }
 
 impl Command {
     pub fn exec(&self, jobs: &mut Jobs) -> anyhow::Result<()> {
         match self {
-            Command::Builtin(builtin) => builtin.exec(jobs),
-            Command::External(external) => external.exec(jobs),
+            Self::Builtin(ref builtin) => builtin.exec(jobs),
+            Self::External(ref external) => external.exec(jobs),
         }
     }
 }

@@ -19,7 +19,7 @@ pub fn string<I: Stream<Token = char>>() -> impl Parser<I, Output = String> {
         raw_str(),
         attempt(lit_unindent()),
         lit_str(),
-        many1(satisfy(|c: char| !c.is_whitespace() && c != '#' && c != '|')),
+        many1(satisfy(|c: char| !c.is_whitespace() && c != '#' && c != '|' && c != '&')),
     ))
 }
 

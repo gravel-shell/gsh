@@ -7,6 +7,7 @@ pub struct Command {
     pub name: String,
     pub args: Vec<Arg>,
     pub pipe: Option<Box<Command>>,
+    pub bg: bool,
 }
 
 impl Command {
@@ -15,6 +16,7 @@ impl Command {
             name: String::new(),
             args: Vec::new(),
             pipe: None,
+            bg: false,
         }
     }
 
@@ -28,11 +30,13 @@ impl Command {
                 string().skip(spaces()),
                 sep_end_by(Arg::parse(), spaces()),
                 optional(token('|').with(Self::parse())),
+                optional(spaces().with(token('&')).skip(spaces())),
             )
-                .map(|(name, args, pipe)| Self {
+                .map(|(name, args, pipe, bg)| Self {
                     name,
                     args,
                     pipe: pipe.map(|c| Box::new(c)),
+                    bg: bg.is_some(),
                 })),
         )
     }

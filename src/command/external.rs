@@ -11,6 +11,7 @@ pub struct External {
     pub args: Vec<String>,
     pub reds: Redirects,
     pub pipe: Option<Box<External>>,
+    pub bg: bool,
 }
 
 impl From<ParseCmd> for External {
@@ -19,6 +20,7 @@ impl From<ParseCmd> for External {
             name,
             args: arg_reds,
             pipe,
+            bg,
         } = cmd;
 
         let mut args = Vec::new();
@@ -41,6 +43,7 @@ impl From<ParseCmd> for External {
             args,
             reds,
             pipe,
+            bg,
         }
     }
 }
@@ -48,7 +51,11 @@ impl From<ParseCmd> for External {
 impl External {
     pub fn exec(&self, jobs: &mut Jobs) -> anyhow::Result<()> {
         let child = self.child()?;
-        jobs.new_fg(child.id() as i32)?;
+        if self.bg {
+            jobs.new_bg(child.id() as i32)?;
+        } else {
+            jobs.new_fg(child.id() as i32)?;
+        }
         Ok(())
     }
 
