@@ -27,6 +27,7 @@ impl Builtin {
             BuiltinKind::Fg => fg(&self.args, jobs)?,
             BuiltinKind::Jobs => println!("{:#?}", jobs),
             BuiltinKind::Var => var(&self.args)?,
+            BuiltinKind::GVar => gvar(&self.args)?,
         }
 
         Ok(())
@@ -41,6 +42,7 @@ pub enum BuiltinKind {
     Fg,
     Jobs,
     Var,
+    GVar,
 }
 
 impl BuiltinKind {
@@ -52,6 +54,7 @@ impl BuiltinKind {
             "fg" => Self::Fg,
             "jobs" => Self::Jobs,
             "var" => Self::Var,
+            "gvar" => Self::GVar,
             _ => return None,
         })
     }
@@ -106,6 +109,31 @@ pub fn fg<T: AsRef<str>, TS: AsRef<[T]>>(args: TS, jobs: &mut Jobs) -> anyhow::R
 }
 
 pub fn var<T: AsRef<str>, TS: AsRef<[T]>>(args: TS) -> anyhow::Result<()> {
+    use std::env;
+    let args = args.as_ref();
+    match args.len() {
+        0 => {
+            for (k, v) in env::vars() {
+                println!("{}={:?}", k, v);
+            }
+        },
+        1 => {
+            let key = args[0].as_ref();
+            let val = env::var(key)?;
+            println!("{}={:?}", key, val);
+        }
+        2 => {
+            let key = args[0].as_ref();
+            let val = args[1].as_ref();
+            env::set_var(key, val);
+        }
+        _ => anyhow::bail!("Unnexpected args number.")
+    }
+
+    Ok(())
+}
+
+pub fn gvar<T: AsRef<str>, TS: AsRef<[T]>>(args: TS) -> anyhow::Result<()> {
     use std::env;
     let args = args.as_ref();
     match args.len() {
