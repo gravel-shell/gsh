@@ -2,9 +2,14 @@ use crate::exec::Object;
 use crate::job::SharedJobs;
 use crate::parse::{parse_line, Parsed};
 
+mod vars;
+
+pub use vars::Vars;
+
 pub struct Session<T> {
     reader: T,
     jobs: SharedJobs,
+    vars: Vars,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -25,6 +30,7 @@ impl<T: Reader> Session<T> {
         Ok(Self {
             reader: T::init(&jobs)?,
             jobs,
+            vars: Vars::default(),
         })
     }
 
