@@ -6,14 +6,14 @@ use crate::parse::Line;
 use crate::job::SharedJobs;
 
 pub enum Object {
-    Multi(Vec<Command>),
+    Multi(Vec<Object>),
     Single(Command),
 }
 
 impl From<Line> for Object {
     fn from(line: Line) -> Self {
         match line {
-            Line::Multi(cmds) => Self::Multi(cmds.into_iter().map(|cmd| Command::from(cmd)).collect()),
+            Line::Multi(lines) => Self::Multi(lines.into_iter().map(|line| Object::from(line)).collect()),
             Line::Single(cmd) => Self::Single(Command::from(cmd))
         }
     }
@@ -22,10 +22,9 @@ impl From<Line> for Object {
 impl Object {
     pub fn exec(&self, jobs: &SharedJobs) -> anyhow::Result<()> {
         match self {
-            Self::Multi(cmds) => {
-                for cmd in cmds.iter() {
-                    jobs.with(|jobs| cmd.exec(jobs))?;
-                    jobs.wait_fg()?;
+            Self::Multi(lines) => {
+                for line in lines.iter() {
+                    line.exec(jobs)?;
                 }
                 Ok(())
             },

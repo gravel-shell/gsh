@@ -6,22 +6,35 @@ use combine::{sep_end_by, token};
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Line {
     Single(Command),
-    Multi(Vec<Command>),
+    Multi(Vec<Line>),
 }
 
 impl Line {
     pub fn parse<I: Stream<Token = char>>() -> impl Parser<I, Output = Self> {
+        line()
+    }
+
+    fn parse_<I: Stream<Token = char>>() -> impl Parser<I, Output = Self> {
         choice((
-            multi().map(|cmds| Self::Multi(cmds)),
+            multi().map(|lines| Self::Multi(lines)),
             Command::parse().map(|cmd| Self::Single(cmd)),
         ))
     }
 }
 
-fn multi<I: Stream<Token = char>>() -> impl Parser<I, Output = Vec<Command>> {
+combine::parser! {
+    fn line[I]()(I) -> Line
+    where [I: Stream<Token = char>]
+    {
+        Line::parse_()
+    }
+}
+
+fn multi<I: Stream<Token = char>>() -> impl Parser<I, Output = Vec<Line>> {
     token('{')
+        .skip(spaces_line())
         .with(sep_end_by(
-            Command::parse(),
+            Line::parse(),
             token('\n').or(token(';')).with(spaces_line()),
         ))
         .skip(token('}'))
