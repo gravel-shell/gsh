@@ -3,7 +3,7 @@ mod command;
 pub use command::Command;
 
 use crate::parse::Line;
-use crate::job::SharedJobs;
+use crate::job::{SharedJobs, Status};
 use crate::session::Vars;
 
 pub enum Object {
@@ -33,7 +33,10 @@ impl Object {
             },
             Self::Single(cmd) => {
                 jobs.with(|jobs| cmd.exec(jobs, vars))?;
-                jobs.wait_fg()?;
+                let stat = jobs.wait_fg()?;
+                if let Some(Status::Exited(code)) = stat {
+                    vars.push("status", code.to_string());
+                }
                 Ok(())
             }
         }
