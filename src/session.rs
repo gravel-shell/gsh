@@ -1,4 +1,4 @@
-use crate::command::Command;
+use crate::exec::Object;
 use crate::job::SharedJobs;
 use crate::parse::{parse_line, Parsed};
 
@@ -37,7 +37,7 @@ impl<T: Reader> Session<T> {
             }
         };
 
-        let cmd = loop {
+        let line = loop {
             match parse_line(line.as_str()) {
                 Ok(Parsed::Complete(cmd)) => break cmd,
                 Ok(Parsed::Yet) => {
@@ -60,9 +60,9 @@ impl<T: Reader> Session<T> {
             }
         };
 
-        let cmd = Command::from(cmd);
+        let obj = Object::from(line);
 
-        match self.jobs.with(|jobs| cmd.exec(jobs)) {
+        match self.jobs.with(|jobs| obj.exec(jobs)) {
             Ok(_) => (),
             Err(e) => {
                 eprintln!("{}", e);
