@@ -60,19 +60,16 @@ impl<T: Reader> Session<T> {
             }
         };
 
+        eprintln!("{:?}", line);
         let obj = Object::from(line);
 
-        match self.jobs.with(|jobs| obj.exec(jobs)) {
+        match obj.exec(&self.jobs) {
             Ok(_) => (),
             Err(e) => {
                 eprintln!("{}", e);
                 return Ok(true);
             }
         }
-
-        let mut jobs = self.jobs.get()?;
-        jobs.wait_fg()?;
-        self.jobs.store(jobs)?;
 
         Ok(true)
     }

@@ -52,7 +52,8 @@ impl External {
     pub fn exec(&self, jobs: &mut Jobs) -> anyhow::Result<()> {
         let child = self.child()?;
         if self.bg {
-            jobs.new_bg(child.id() as i32)?;
+            let (id, pid) = jobs.new_bg(child.id() as i32)?;
+            println!("Job %{} ({}) has started.", id, pid);
         } else {
             jobs.new_fg(child.id() as i32)?;
         }
