@@ -7,8 +7,9 @@ use crate::parse::Line;
 use crate::session::Vars;
 
 pub enum Eval {
-    Multi(Vec<Eval>),
     Single(Command),
+    Multi(Vec<Eval>),
+    If(Option<Box<Eval>>),
 }
 
 impl From<Line> for Eval {
@@ -18,6 +19,13 @@ impl From<Line> for Eval {
                 Self::Multi(lines.into_iter().map(|line| Eval::from(line)).collect())
             }
             Line::Single(cmd) => Self::Single(Command::from(cmd)),
+            Line::If(cond, first, second) => Eval::If(if cond {
+                Some(Box::new(Eval::from(*first)))
+            } else if let Some(sec) = second {
+                Some(Box::new(Eval::from(*sec)))
+            } else {
+                None
+            })
         }
     }
 }
@@ -41,6 +49,8 @@ impl Eval {
                 }
                 Ok(())
             }
+            Self::If(Some(eval)) => eval.eval(jobs, vars),
+            Self::If(None) => Ok(())
         }
     }
 }

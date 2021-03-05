@@ -1,12 +1,14 @@
-use super::{spaces_line, Command};
+use super::{spaces_line, string, Command};
 
-use combine::{choice, Parser, Stream};
+use combine::parser::char;
+use combine::{choice, optional, Parser, Stream};
 use combine::{sep_end_by, token};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Line {
     Single(Command),
     Multi(Vec<Line>),
+    If(bool, Box<Line>, Option<Box<Line>>),
 }
 
 impl Line {
@@ -16,6 +18,7 @@ impl Line {
 
     fn parse_<I: Stream<Token = char>>() -> impl Parser<I, Output = Self> {
         choice((
+            if_().map(|(cond, first, second)| Self::If(cond, first, second)),
             multi().map(|lines| Self::Multi(lines)),
             Command::parse().map(|cmd| Self::Single(cmd)),
         ))
@@ -38,4 +41,24 @@ fn multi<I: Stream<Token = char>>() -> impl Parser<I, Output = Vec<Line>> {
             token('\n').or(token(';')).with(spaces_line()),
         ))
         .skip(token('}'))
+}
+
+fn if_<I: Stream<Token = char>>() -> impl Parser<I, Output = (bool, Box<Line>, Option<Box<Line>>)> {
+    (
+        char::string("if"),
+        spaces_line(),
+        string().map(|s| matches!(s.to_lowercase().as_str(), "0" | "y" | "yes" | "true")),
+        spaces_line(),
+        Line::parse().map(|line| Box::new(line)),
+        optional(
+            (
+                spaces_line(),
+                char::string("else"),
+                spaces_line(),
+                Line::parse().map(|line| Box::new(line)),
+            )
+                .map(|(_, _, _, line)| line),
+        ),
+    )
+        .map(|(_, _, cond, _, first, second)| (cond, first, second))
 }

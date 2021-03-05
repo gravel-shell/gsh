@@ -66,6 +66,7 @@ impl<T: Reader> Session<T> {
             }
         };
 
+        eprintln!("{:?}", line);
         let eval = Eval::from(line);
 
         match eval.eval(&self.jobs, &mut self.vars) {
