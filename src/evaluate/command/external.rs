@@ -50,7 +50,7 @@ impl From<ParseCmd> for External {
 
 impl External {
     pub fn eval(&self, jobs: &mut Jobs) -> anyhow::Result<()> {
-        let child = self.child()?;
+        let child = self.child(false)?;
         if self.bg {
             let (id, pid) = jobs.new_bg(child.id() as i32)?;
             println!("Job %{} ({}) has started.", id, pid);
@@ -60,11 +60,17 @@ impl External {
         Ok(())
     }
 
-    fn child(&self) -> anyhow::Result<Child> {
+    pub fn output(&self) -> anyhow::Result<String> {
+        let child = self.child(true)?;
+        let output = child.wait_with_output()?;
+        Ok(String::from_utf8(output.stdout)?)
+    }
+
+    fn child(&self, output: bool) -> anyhow::Result<Child> {
         let mut child = Command::new(&self.name.eval()?);
         child.args(&self.args.iter().map(|arg| arg.eval()).collect::<Result<Vec<_>, _>>()?);
 
-        let heredoc = self.reds.redirect(&mut child, false, self.pipe.is_some())?;
+        let heredoc = self.reds.redirect(&mut child, false, output || self.pipe.is_some())?;
 
         let mut child = child.spawn()?;
 

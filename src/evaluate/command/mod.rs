@@ -37,4 +37,8 @@ impl Command {
             self.0.eval(jobs)
         }
     }
+
+    pub fn output(&self) -> anyhow::Result<String> {
+        self.0.output()
+    }
 }
