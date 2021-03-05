@@ -6,33 +6,33 @@ use crate::parse::Line;
 use crate::job::{SharedJobs, Status};
 use crate::session::Vars;
 
-pub enum Object {
-    Multi(Vec<Object>),
+pub enum Eval {
+    Multi(Vec<Eval>),
     Single(Command),
 }
 
-impl From<Line> for Object {
+impl From<Line> for Eval {
     fn from(line: Line) -> Self {
         match line {
-            Line::Multi(lines) => Self::Multi(lines.into_iter().map(|line| Object::from(line)).collect()),
+            Line::Multi(lines) => Self::Multi(lines.into_iter().map(|line| Eval::from(line)).collect()),
             Line::Single(cmd) => Self::Single(Command::from(cmd))
         }
     }
 }
 
-impl Object {
-    pub fn exec(&self, jobs: &SharedJobs, vars: &mut Vars) -> anyhow::Result<()> {
+impl Eval {
+    pub fn eval(&self, jobs: &SharedJobs, vars: &mut Vars) -> anyhow::Result<()> {
         match self {
             Self::Multi(lines) => {
                 vars.mark();
                 for line in lines.iter() {
-                    line.exec(jobs, vars)?;
+                    line.eval(jobs, vars)?;
                 }
                 vars.drop();
                 Ok(())
             },
             Self::Single(cmd) => {
-                jobs.with(|jobs| cmd.exec(jobs, vars))?;
+                jobs.with(|jobs| cmd.eval(jobs, vars))?;
                 let stat = jobs.wait_fg()?;
                 if let Some(Status::Exited(code)) = stat {
                     vars.push("status", code.to_string());

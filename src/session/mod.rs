@@ -1,4 +1,4 @@
-use crate::exec::Object;
+use crate::evaluate::Eval;
 use crate::job::SharedJobs;
 use crate::parse::{parse_line, Parsed};
 
@@ -67,9 +67,9 @@ impl<T: Reader> Session<T> {
         };
 
         eprintln!("{:?}", line);
-        let obj = Object::from(line);
+        let eval = Eval::from(line);
 
-        match obj.exec(&self.jobs, &mut self.vars) {
+        match eval.eval(&self.jobs, &mut self.vars) {
             Ok(_) => (),
             Err(e) => {
                 eprintln!("{}", e);

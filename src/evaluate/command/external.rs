@@ -49,7 +49,7 @@ impl From<ParseCmd> for External {
 }
 
 impl External {
-    pub fn exec(&self, jobs: &mut Jobs) -> anyhow::Result<()> {
+    pub fn eval(&self, jobs: &mut Jobs) -> anyhow::Result<()> {
         let child = self.child()?;
         if self.bg {
             let (id, pid) = jobs.new_bg(child.id() as i32)?;

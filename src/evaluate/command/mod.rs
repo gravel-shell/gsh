@@ -50,10 +50,10 @@ impl From<ParseCmd> for Command {
 }
 
 impl Command {
-    pub fn exec(&self, jobs: &mut Jobs, vars: &mut Vars) -> anyhow::Result<()> {
+    pub fn eval(&self, jobs: &mut Jobs, vars: &mut Vars) -> anyhow::Result<()> {
         match self {
-            Self::Builtin(ref builtin) => builtin.exec(jobs, vars),
-            Self::External(ref external) => external.exec(jobs),
+            Self::Builtin(ref builtin) => builtin.eval(jobs, vars),
+            Self::External(ref external) => external.eval(jobs),
         }
     }
 }

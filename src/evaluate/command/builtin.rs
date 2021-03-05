@@ -20,7 +20,7 @@ impl Builtin {
         }
     }
 
-    pub fn exec(&self, jobs: &mut Jobs, vars: &mut Vars) -> anyhow::Result<()> {
+    pub fn eval(&self, jobs: &mut Jobs, vars: &mut Vars) -> anyhow::Result<()> {
         match self.kind {
             BuiltinKind::Empty => (),
             BuiltinKind::Exit => exit(&self.args)?,
