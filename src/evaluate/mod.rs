@@ -2,8 +2,8 @@ mod command;
 
 pub use command::Command;
 
-use crate::parse::Line;
 use crate::job::{SharedJobs, Status};
+use crate::parse::Line;
 use crate::session::Vars;
 
 pub enum Eval {
@@ -14,8 +14,10 @@ pub enum Eval {
 impl From<Line> for Eval {
     fn from(line: Line) -> Self {
         match line {
-            Line::Multi(lines) => Self::Multi(lines.into_iter().map(|line| Eval::from(line)).collect()),
-            Line::Single(cmd) => Self::Single(Command::from(cmd))
+            Line::Multi(lines) => {
+                Self::Multi(lines.into_iter().map(|line| Eval::from(line)).collect())
+            }
+            Line::Single(cmd) => Self::Single(Command::from(cmd)),
         }
     }
 }
@@ -30,7 +32,7 @@ impl Eval {
                 }
                 vars.drop();
                 Ok(())
-            },
+            }
             Self::Single(cmd) => {
                 jobs.with(|jobs| cmd.eval(jobs, vars))?;
                 let stat = jobs.wait_fg()?;

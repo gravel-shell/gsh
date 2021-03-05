@@ -1,5 +1,5 @@
-mod external;
 mod builtin;
+mod external;
 mod redirect;
 
 pub use builtin::{Builtin, BuiltinKind};
@@ -13,7 +13,7 @@ use crate::session::Vars;
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Command {
     Builtin(Builtin),
-    External(External)
+    External(External),
 }
 
 impl From<ParseCmd> for Command {
@@ -45,7 +45,13 @@ impl From<ParseCmd> for Command {
 
         let reds = Redirects::new(reds);
         let pipe = pipe.map(|pipe| Box::new(External::from(*pipe)));
-        Self::External(External {name, args, reds, pipe, bg})
+        Self::External(External {
+            name,
+            args,
+            reds,
+            pipe,
+            bg,
+        })
     }
 }
 

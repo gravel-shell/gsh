@@ -65,7 +65,8 @@ pub fn exit<T: AsRef<str>, TS: AsRef<[T]>>(args: TS) -> anyhow::Result<()> {
     let args = args.as_ref();
     let code = match args.len() {
         0 => 0,
-        1 => args[0].as_ref()
+        1 => args[0]
+            .as_ref()
             .parse::<i32>()
             .context("Failed to parse a number.")?,
         _ => anyhow::bail!("Unnexpected args number."),
