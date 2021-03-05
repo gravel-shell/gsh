@@ -2,7 +2,10 @@ extern crate unindent;
 
 use super::Command;
 use combine::parser::char;
-use combine::{attempt, choice, count_min_max, many, many1, one_of, parser, satisfy, token, value};
+use combine::{
+    attempt, choice, count_min_max, many, many1, one_of, parser,
+    satisfy, token, value, any,
+};
 use combine::{ParseError, Parser, Stream};
 use unindent::unindent;
 
@@ -104,46 +107,56 @@ fn lit<I: Stream<Token = char>>() -> impl Parser<I, Output = SpecialStr> {
 }
 
 fn lit_str<I: Stream<Token = char>>() -> impl Parser<I, Output = String> {
-    use std::convert::TryFrom;
-
-    many1(satisfy(|c| c != '"').then(|c| {
-        if c == '\\' {
-            choice((
-                one_of("abefnrtv\\\"".chars()).map(|seq| match seq {
-                    'a' => '\x07',
-                    'b' => '\x08',
-                    'e' => '\x1b',
-                    'f' => '\x0c',
-                    'n' => '\n',
-                    'r' => '\r',
-                    't' => '\t',
-                    'v' => '\x0b',
-                    '\\' => '\\',
-                    '"' => '"',
-                    _ => unreachable!(),
-                }),
-                token('x')
-                    .with(count_min_max(2, 2, char::hex_digit()))
-                    .map(|s: String| u8::from_str_radix(s.as_str(), 16).unwrap() as char),
-                one_of("uU".chars())
-                    .and(token('{'))
-                    .with(many1(char::hex_digit()).map(|s: String| {
-                        char::try_from(u32::from_str_radix(s.as_str(), 16).unwrap()).unwrap()
-                    }))
-                    .skip(token('}')),
-            ))
-            .left()
+    many(choice((
+        token('\\').with(any()).map(|c| if c == '"' {
+            String::from(c)
         } else {
-            value(c).right()
-        }
-    }))
+            format!("\\{}", c)
+        }),
+        many1(satisfy(|c| c != '"' && c != '\\')),
+    )))
+    .map(|strs: Vec<_>| strs.join(""))
 }
 
 fn lit_reparse<I: Stream<Token = char>>() -> impl Parser<I, Output = SpecialStr> {
+    use std::convert::TryFrom;
+
     many1(choice((
         command().map(|c| StrKind::Cmd(c)),
         env().map(|s| StrKind::Var(s)),
-        many1(satisfy(|c| c != '$' && c != '(')).map(|s| StrKind::String(s)),
+        many1(satisfy(|c| c != '$' && c != '(').then(|c| {
+            if c == '\\' {
+                choice((
+                    one_of("abefnrtv$(\\".chars()).map(|seq| match seq {
+                        'a' => '\x07',
+                        'b' => '\x08',
+                        'e' => '\x1b',
+                        'f' => '\x0c',
+                        'n' => '\n',
+                        'r' => '\r',
+                        't' => '\t',
+                        'v' => '\x0b',
+                        '$' => '$',
+                        '(' => '(',
+                        '\\' => '\\',
+                        _ => unimplemented!(),
+                    }),
+                    token('x')
+                        .with(count_min_max(2, 2, char::hex_digit()))
+                        .map(|s: String| u8::from_str_radix(s.as_str(), 16).unwrap() as char),
+                    one_of("uU".chars())
+                        .and(token('{'))
+                        .with(many1(char::hex_digit()).map(|s: String| {
+                            char::try_from(u32::from_str_radix(s.as_str(), 16).unwrap()).unwrap()
+                        }))
+                        .skip(token('}')),
+                ))
+                .left()
+            } else {
+                value(c).right()
+            }
+        }))
+        .map(|s| StrKind::String(s)),
     )))
     .map(|strs| SpecialStr(strs))
 }
