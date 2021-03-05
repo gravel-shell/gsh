@@ -1,4 +1,4 @@
-use super::{spaces, string};
+use super::{spaces, SpecialStr};
 use combine::{choice, one_of, token, value};
 use combine::{Parser, Stream};
 
@@ -23,7 +23,7 @@ pub enum RedTarget {
     Stdout,
     Stderr,
     Null,
-    Other(String),
+    Other(SpecialStr),
 }
 
 impl RedTarget {
@@ -37,7 +37,7 @@ impl RedTarget {
                 '!' => Self::Null,
                 _ => unreachable!(),
             })
-            .or(string().map(|s| Self::Other(s)))
+            .or(SpecialStr::parse().map(|s| Self::Other(s)))
     }
 }
 

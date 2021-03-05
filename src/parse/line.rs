@@ -1,4 +1,4 @@
-use super::{spaces_line, string, Command};
+use super::{spaces_line, Command, SpecialStr};
 
 use combine::parser::char;
 use combine::{choice, optional, Parser, Stream};
@@ -8,7 +8,7 @@ use combine::{sep_end_by, token};
 pub enum Line {
     Single(Command),
     Multi(Vec<Line>),
-    If(bool, Box<Line>, Option<Box<Line>>),
+    If(SpecialStr, Box<Line>, Option<Box<Line>>),
 }
 
 impl Line {
@@ -43,11 +43,11 @@ fn multi<I: Stream<Token = char>>() -> impl Parser<I, Output = Vec<Line>> {
         .skip(token('}'))
 }
 
-fn if_<I: Stream<Token = char>>() -> impl Parser<I, Output = (bool, Box<Line>, Option<Box<Line>>)> {
+fn if_<I: Stream<Token = char>>() -> impl Parser<I, Output = (SpecialStr, Box<Line>, Option<Box<Line>>)> {
     (
         char::string("if"),
         spaces_line(),
-        string().map(|s| matches!(s.to_lowercase().as_str(), "0" | "y" | "yes" | "true")),
+        SpecialStr::parse(),
         spaces_line(),
         Line::parse().map(|line| Box::new(line)),
         optional(

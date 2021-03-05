@@ -4,12 +4,14 @@ mod chars;
 mod command;
 mod line;
 mod redirect;
+mod string;
 
 pub use command::{Arg, Command};
 pub use line::Line;
 pub use redirect::{RedKind, RedTarget, Redirect};
+pub use string::SpecialStr;
 
-use chars::{spaces, spaces_line, string};
+use chars::{spaces, spaces_line};
 use combine::{EasyParser, ParseError};
 
 #[derive(Clone, Debug, PartialEq, Eq)]

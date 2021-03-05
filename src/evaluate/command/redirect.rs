@@ -1,4 +1,4 @@
-use crate::parse::{RedKind, RedTarget, Redirect};
+use crate::parse::{RedKind, RedTarget, Redirect, SpecialStr};
 use std::fs::{File, OpenOptions};
 use std::process::{Command, Stdio};
 
@@ -15,7 +15,7 @@ impl Redirects {
         cmd: &mut Command,
         piped_in: bool,
         piped_out: bool,
-    ) -> anyhow::Result<Option<&[u8]>> {
+    ) -> anyhow::Result<Option<Vec<u8>>> {
         self.0.redirect(cmd, piped_in, piped_out)
     }
 }
@@ -26,12 +26,12 @@ enum RedirectsInner {
     Bind(Option<RedIn>, Option<RedOut>),
 }
 
-fn target2str(target: RedTarget) -> String {
+fn target2str(target: RedTarget) -> SpecialStr {
     match target {
-        RedTarget::Stdin => String::from("/dev/stdin"),
-        RedTarget::Stdout => String::from("/dev/stdout"),
-        RedTarget::Stderr => String::from("/dev/stderr"),
-        RedTarget::Null => String::from("/dev/null"),
+        RedTarget::Stdin => SpecialStr::from(String::from("/dev/stdin")),
+        RedTarget::Stdout => SpecialStr::from(String::from("/dev/stdout")),
+        RedTarget::Stderr => SpecialStr::from(String::from("/dev/stderr")),
+        RedTarget::Null => SpecialStr::from(String::from("/dev/null")),
         RedTarget::Other(s) => s,
     }
 }
@@ -90,16 +90,16 @@ impl RedirectsInner {
         cmd: &mut Command,
         piped_in: bool,
         piped_out: bool,
-    ) -> anyhow::Result<Option<&[u8]>> {
+    ) -> anyhow::Result<Option<Vec<u8>>> {
         let stdin = match self {
             Self::Bind(stdin, Some(stdout)) if piped_out => {
-                let err = stdout.mode.option().open(&stdout.target)?;
+                let err = stdout.mode.option().open(&stdout.target.eval()?)?;
                 cmd.stdout(Stdio::piped());
                 cmd.stderr(Stdio::from(err));
                 stdin
             }
             Self::Bind(stdin, Some(stdout)) => {
-                let out = stdout.mode.option().open(&stdout.target)?;
+                let out = stdout.mode.option().open(&stdout.target.eval()?)?;
                 let err = out.try_clone()?;
                 cmd.stdout(Stdio::from(out));
                 cmd.stderr(Stdio::from(err));
@@ -114,12 +114,12 @@ impl RedirectsInner {
                 if piped_out {
                     cmd.stdout(Stdio::piped());
                 } else if let Some(stdout) = stdout {
-                    let out = stdout.mode.option().open(&stdout.target)?;
+                    let out = stdout.mode.option().open(&stdout.target.eval()?)?;
                     cmd.stdout(Stdio::from(out));
                 }
 
                 if let Some(stderr) = stderr {
-                    let err = stderr.mode.option().open(&stderr.target)?;
+                    let err = stderr.mode.option().open(&stderr.target.eval()?)?;
                     cmd.stderr(Stdio::from(err));
                 }
 
@@ -131,13 +131,14 @@ impl RedirectsInner {
         if piped_in {
             cmd.stdin(Stdio::piped());
         } else if let Some(stdin) = stdin {
+            let target = stdin.target.eval()?;
             match stdin.mode {
                 InMode::Normal => {
-                    cmd.stdin(Stdio::from(File::open(&stdin.target)?));
+                    cmd.stdin(Stdio::from(File::open(&target)?));
                 }
                 InMode::HereDoc => {
                     cmd.stdin(Stdio::piped());
-                    s = Some(stdin.target.as_bytes());
+                    s = Some(target.into_bytes());
                 }
             }
         }
@@ -149,7 +150,7 @@ impl RedirectsInner {
 #[derive(Clone, Debug, PartialEq, Eq)]
 struct RedOut {
     mode: OutMode,
-    target: String,
+    target: SpecialStr,
 }
 
 impl RedOut {
@@ -188,7 +189,7 @@ impl OutMode {
 #[derive(Clone, Debug, PartialEq, Eq)]
 struct RedIn {
     mode: InMode,
-    target: String,
+    target: SpecialStr,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

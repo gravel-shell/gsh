@@ -1,14 +1,14 @@
 use super::Redirects;
 
 use crate::job::Jobs;
-use crate::parse::{Arg, Command as ParseCmd};
+use crate::parse::{Arg, Command as ParseCmd, SpecialStr};
 
 use std::process::{Child, Command, Stdio};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct External {
-    pub name: String,
-    pub args: Vec<String>,
+    pub name: SpecialStr,
+    pub args: Vec<SpecialStr>,
     pub reds: Redirects,
     pub pipe: Option<Box<External>>,
     pub bg: bool,
@@ -61,8 +61,8 @@ impl External {
     }
 
     fn child(&self) -> anyhow::Result<Child> {
-        let mut child = Command::new(&self.name);
-        child.args(&self.args);
+        let mut child = Command::new(&self.name.eval()?);
+        child.args(&self.args.iter().map(|arg| arg.eval()).collect::<Result<Vec<_>, _>>()?);
 
         let heredoc = self.reds.redirect(&mut child, false, self.pipe.is_some())?;
 
@@ -70,7 +70,7 @@ impl External {
 
         if let Some(s) = heredoc {
             use std::io::Write;
-            child.stdin.take().unwrap().write_all(s)?;
+            child.stdin.take().unwrap().write_all(&s)?;
         }
 
         if let Some(pipe) = &self.pipe {
@@ -81,8 +81,8 @@ impl External {
     }
 
     fn pipe_from(&self, other: Child) -> anyhow::Result<Child> {
-        let mut child = Command::new(&self.name);
-        child.args(&self.args);
+        let mut child = Command::new(&self.name.eval()?);
+        child.args(&self.args.iter().map(|arg| arg.eval()).collect::<Result<Vec<_>, _>>()?);
 
         let heredoc = self.reds.redirect(&mut child, true, self.pipe.is_some())?;
 
@@ -92,7 +92,7 @@ impl External {
 
         if let Some(s) = heredoc {
             use std::io::Write;
-            child.stdin.take().unwrap().write_all(s)?;
+            child.stdin.take().unwrap().write_all(&s)?;
         }
 
         if let Some(pipe) = &self.pipe {
