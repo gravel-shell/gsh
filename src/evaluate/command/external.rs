@@ -104,7 +104,9 @@ impl External {
                 .collect::<Result<Vec<_>, _>>()?,
         );
 
-        let heredoc = self.reds.redirect(&mut child, true, output || self.pipe.is_some())?;
+        let heredoc = self
+            .reds
+            .redirect(&mut child, true, output || self.pipe.is_some())?;
 
         child.stdin(Stdio::from(other.stdout.unwrap()));
 

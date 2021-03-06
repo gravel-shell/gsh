@@ -115,7 +115,10 @@ impl Eval {
             Self::Case(cond, blocks) => {
                 let cond = cond.eval()?;
                 for (pats, block) in blocks.iter() {
-                    let pats = pats.iter().map(|pat| pat.eval()).collect::<Result<Vec<_>, _>>()?;
+                    let pats = pats
+                        .iter()
+                        .map(|pat| pat.eval())
+                        .collect::<Result<Vec<_>, _>>()?;
                     if pats.into_iter().any(|pat| pat == cond) {
                         return Ok(block.eval_inner(jobs, vars)?);
                     }
