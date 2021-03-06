@@ -3,17 +3,17 @@ mod command;
 pub use command::Command;
 
 use crate::job::{SharedJobs, Status};
-use crate::parse::{Line, SpecialStr};
+use crate::parse::{Block as ParseBlk, SpecialStr};
 use crate::session::Vars;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub enum Eval {
+pub enum Block {
     Single(Command),
-    Multi(Vec<Eval>),
-    If(SpecialStr, Box<Eval>, Option<Box<Eval>>),
-    While(SpecialStr, Box<Eval>),
-    Case(SpecialStr, Vec<(Vec<SpecialStr>, Eval)>),
-    For(String, SpecialStr, Box<Eval>),
+    Multi(Vec<Block>),
+    If(SpecialStr, Box<Block>, Option<Box<Block>>),
+    While(SpecialStr, Box<Block>),
+    Case(SpecialStr, Vec<(Vec<SpecialStr>, Block)>),
+    For(String, SpecialStr, Box<Block>),
     Break,
     Continue,
 }
@@ -25,34 +25,34 @@ enum State {
     Continued,
 }
 
-impl From<Line> for Eval {
-    fn from(line: Line) -> Self {
-        match line {
-            Line::Multi(lines) => {
-                Self::Multi(lines.into_iter().map(|line| Self::from(line)).collect())
+impl From<ParseBlk> for Block {
+    fn from(block: ParseBlk) -> Self {
+        match block {
+            ParseBlk::Multi(blocks) => {
+                Self::Multi(blocks.into_iter().map(|block| Self::from(block)).collect())
             }
-            Line::Single(cmd) => Self::Single(Command::from(cmd)),
-            Line::If(cond, first, second) => Self::If(
+            ParseBlk::Single(cmd) => Self::Single(Command::from(cmd)),
+            ParseBlk::If(cond, first, second) => Self::If(
                 cond,
                 Box::new(Self::from(*first)),
                 second.map(|sec| Box::new(Self::from(*sec))),
             ),
-            Line::While(cond, block) => Self::While(cond, Box::new(Self::from(*block))),
-            Line::Case(cond, blocks) => Self::Case(
+            ParseBlk::While(cond, block) => Self::While(cond, Box::new(Self::from(*block))),
+            ParseBlk::Case(cond, blocks) => Self::Case(
                 cond,
                 blocks
                     .into_iter()
                     .map(|(pats, block)| (pats, Self::from(block)))
                     .collect(),
             ),
-            Line::For(c, iter, block) => Self::For(c, iter, Box::new(Self::from(*block))),
-            Line::Break => Self::Break,
-            Line::Continue => Self::Continue,
+            ParseBlk::For(c, iter, block) => Self::For(c, iter, Box::new(Self::from(*block))),
+            ParseBlk::Break => Self::Break,
+            ParseBlk::Continue => Self::Continue,
         }
     }
 }
 
-impl Eval {
+impl Block {
     pub fn eval(&self, jobs: &SharedJobs, vars: &mut Vars) -> anyhow::Result<()> {
         self.eval_inner(jobs, vars)?;
         Ok(())

@@ -5,20 +5,20 @@ use combine::{attempt, choice, many, many1, optional, satisfy, sep_by, Parser, S
 use combine::{sep_end_by, token};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub enum Line {
+pub enum Block {
     Single(Command),
-    Multi(Vec<Line>),
-    If(SpecialStr, Box<Line>, Option<Box<Line>>),
-    While(SpecialStr, Box<Line>),
-    Case(SpecialStr, Vec<(Vec<SpecialStr>, Line)>),
-    For(String, SpecialStr, Box<Line>),
+    Multi(Vec<Self>),
+    If(SpecialStr, Box<Self>, Option<Box<Self>>),
+    While(SpecialStr, Box<Self>),
+    Case(SpecialStr, Vec<(Vec<SpecialStr>, Self)>),
+    For(String, SpecialStr, Box<Self>),
     Break,
     Continue,
 }
 
-impl Line {
+impl Block {
     pub fn parse<I: Stream<Token = char>>() -> impl Parser<I, Output = Self> {
-        line()
+        block()
     }
 
     fn parse_<I: Stream<Token = char>>() -> impl Parser<I, Output = Self> {
@@ -36,37 +36,37 @@ impl Line {
 }
 
 combine::parser! {
-    fn line[I]()(I) -> Line
+    fn block[I]()(I) -> Block
     where [I: Stream<Token = char>]
     {
-        Line::parse_()
+        Block::parse_()
     }
 }
 
-fn multi<I: Stream<Token = char>>() -> impl Parser<I, Output = Vec<Line>> {
+fn multi<I: Stream<Token = char>>() -> impl Parser<I, Output = Vec<Block>> {
     token('{')
         .skip(spaces_line())
         .with(sep_end_by(
-            Line::parse(),
+            Block::parse(),
             token('\n').or(token(';')).with(spaces_line()),
         ))
         .skip(token('}'))
 }
 
 fn if_<I: Stream<Token = char>>(
-) -> impl Parser<I, Output = (SpecialStr, Box<Line>, Option<Box<Line>>)> {
+) -> impl Parser<I, Output = (SpecialStr, Box<Block>, Option<Box<Block>>)> {
     (
         attempt(char::string("if")),
         spaces_line(),
         SpecialStr::parse(),
         spaces_line(),
-        Line::parse().map(|line| Box::new(line)),
+        Block::parse().map(|line| Box::new(line)),
         spaces_line(),
         optional(
             (
                 char::string("else"),
                 spaces_line(),
-                Line::parse().map(|line| Box::new(line)),
+                Block::parse().map(|line| Box::new(line)),
             )
                 .map(|(_, _, line)| line),
         ),
@@ -74,19 +74,19 @@ fn if_<I: Stream<Token = char>>(
         .map(|(_, _, cond, _, first, _, second)| (cond, first, second))
 }
 
-fn while_<I: Stream<Token = char>>() -> impl Parser<I, Output = (SpecialStr, Box<Line>)> {
+fn while_<I: Stream<Token = char>>() -> impl Parser<I, Output = (SpecialStr, Box<Block>)> {
     (
         attempt(char::string("while")),
         spaces_line(),
         SpecialStr::parse(),
         spaces_line(),
-        Line::parse().map(|line| Box::new(line)),
+        Block::parse().map(|line| Box::new(line)),
     )
         .map(|(_, _, cond, _, block)| (cond, block))
 }
 
 fn case<I: Stream<Token = char>>(
-) -> impl Parser<I, Output = (SpecialStr, Vec<(Vec<SpecialStr>, Line)>)> {
+) -> impl Parser<I, Output = (SpecialStr, Vec<(Vec<SpecialStr>, Block)>)> {
     (
         attempt(char::string("case")),
         spaces_line(),
@@ -102,7 +102,7 @@ fn case<I: Stream<Token = char>>(
                 ),
                 char::string("=>"),
                 spaces_line(),
-                Line::parse(),
+                Block::parse(),
                 spaces_line(),
             )
                 .map(|(pats, _, _, block, _)| (pats, block)),
@@ -112,7 +112,7 @@ fn case<I: Stream<Token = char>>(
         .map(|(_, _, cond, _, _, _, blocks, _)| (cond, blocks))
 }
 
-fn for_<I: Stream<Token = char>>() -> impl Parser<I, Output = (String, SpecialStr, Box<Line>)> {
+fn for_<I: Stream<Token = char>>() -> impl Parser<I, Output = (String, SpecialStr, Box<Block>)> {
     (
         attempt(char::string("for")),
         spaces_line(),
@@ -122,7 +122,7 @@ fn for_<I: Stream<Token = char>>() -> impl Parser<I, Output = (String, SpecialSt
         spaces_line(),
         SpecialStr::parse(),
         spaces_line(),
-        Line::parse().map(|line| Box::new(line)),
+        Block::parse().map(|line| Box::new(line)),
     )
         .map(|(_, _, c, _, _, _, iter, _, block)| (c, iter, block))
 }

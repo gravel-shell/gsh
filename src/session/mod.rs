@@ -1,4 +1,4 @@
-use crate::eval::Eval;
+use crate::eval::Block;
 use crate::job::SharedJobs;
 use crate::parse::{parse_line, Parsed};
 
@@ -67,9 +67,9 @@ impl<T: Reader> Session<T> {
         };
 
         eprintln!("{:?}", line);
-        let eval = Eval::from(line);
+        let block = Block::from(line);
 
-        match eval.eval(&self.jobs, &mut self.vars) {
+        match block.eval(&self.jobs, &mut self.vars) {
             Ok(_) => (),
             Err(e) => {
                 eprintln!("{}", e);
