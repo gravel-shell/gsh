@@ -55,15 +55,15 @@ fn if_<I: Stream<Token = char>>(
         SpecialStr::parse(),
         spaces_line(),
         Line::parse().map(|line| Box::new(line)),
+        spaces_line(),
         optional(
             (
-                spaces_line(),
                 char::string("else"),
                 spaces_line(),
                 Line::parse().map(|line| Box::new(line)),
             )
-                .map(|(_, _, _, line)| line),
+                .map(|(_, _, line)| line),
         ),
     )
-        .map(|(_, _, cond, _, first, second)| (cond, first, second))
+        .map(|(_, _, cond, _, first, _, second)| (cond, first, second))
 }
