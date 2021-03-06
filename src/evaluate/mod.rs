@@ -12,6 +12,7 @@ pub enum Eval {
     Multi(Vec<Eval>),
     If(SpecialStr, Box<Eval>, Option<Box<Eval>>),
     While(SpecialStr, Box<Eval>),
+    Case(SpecialStr, Vec<(Vec<SpecialStr>, Eval)>),
     Break,
     Continue,
 }
@@ -36,6 +37,13 @@ impl From<Line> for Eval {
                 second.map(|sec| Box::new(Self::from(*sec))),
             ),
             Line::While(cond, block) => Self::While(cond, Box::new(Self::from(*block))),
+            Line::Case(cond, blocks) => Self::Case(
+                cond,
+                blocks
+                    .into_iter()
+                    .map(|(pats, block)| (pats, Self::from(block)))
+                    .collect(),
+            ),
             Line::Break => Self::Break,
             Line::Continue => Self::Continue,
         }
@@ -61,7 +69,7 @@ impl Eval {
                             return Ok(state);
                         }
                     }
-                };
+                }
                 vars.drop();
                 Ok(State::Normal)
             }
@@ -91,13 +99,21 @@ impl Eval {
             }
             Self::While(cond, block) => {
                 while matches!(
-                        cond.eval()?.to_lowercase().as_str(),
-                        "1" | "y" | "yes" | "true"
+                    cond.eval()?.to_lowercase().as_str(),
+                    "1" | "y" | "yes" | "true"
                 ) {
                     let state = block.eval_inner(jobs, vars)?;
                     match state {
                         State::Normal | State::Continued => continue,
                         State::Breaked => break,
+                    }
+                }
+                Ok(State::Normal)
+            }
+            Self::Case(cond, blocks) => {
+                for (pats, block) in blocks.iter() {
+                    if pats.iter().any(|pat| pat == cond) {
+                        return Ok(block.eval_inner(jobs, vars)?);
                     }
                 }
                 Ok(State::Normal)

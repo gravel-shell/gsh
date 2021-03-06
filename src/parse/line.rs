@@ -1,7 +1,7 @@
 use super::{spaces_line, Command, SpecialStr};
 
 use combine::parser::char;
-use combine::{attempt, choice, optional, Parser, Stream};
+use combine::{attempt, choice, many, optional, sep_by, Parser, Stream};
 use combine::{sep_end_by, token};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -10,6 +10,7 @@ pub enum Line {
     Multi(Vec<Line>),
     If(SpecialStr, Box<Line>, Option<Box<Line>>),
     While(SpecialStr, Box<Line>),
+    Case(SpecialStr, Vec<(Vec<SpecialStr>, Line)>),
     Break,
     Continue,
 }
@@ -25,6 +26,7 @@ impl Line {
             attempt(char::string("continue")).map(|_| Self::Continue),
             if_().map(|(cond, first, second)| Self::If(cond, first, second)),
             while_().map(|(cond, block)| Self::While(cond, block)),
+            case().map(|(cond, blocks)| Self::Case(cond, blocks)),
             multi().map(|lines| Self::Multi(lines)),
             Command::parse().map(|cmd| Self::Single(cmd)),
         ))
@@ -77,5 +79,33 @@ fn while_<I: Stream<Token = char>>() -> impl Parser<I, Output = (SpecialStr, Box
         SpecialStr::parse(),
         spaces_line(),
         Line::parse().map(|line| Box::new(line)),
-    ).map(|(_, _, cond, _, block)| (cond, block))
+    )
+        .map(|(_, _, cond, _, block)| (cond, block))
+}
+
+fn case<I: Stream<Token = char>>(
+) -> impl Parser<I, Output = (SpecialStr, Vec<(Vec<SpecialStr>, Line)>)> {
+    (
+        attempt(char::string("case")),
+        spaces_line(),
+        SpecialStr::parse(),
+        spaces_line(),
+        token('{'),
+        spaces_line(),
+        many(
+            (
+                sep_by(
+                    SpecialStr::parse().skip(spaces_line()),
+                    token('|').skip(spaces_line()),
+                ),
+                char::string("=>"),
+                spaces_line(),
+                Line::parse(),
+                spaces_line(),
+            )
+                .map(|(pats, _, _, block, _)| (pats, block)),
+        ),
+        token('}'),
+    )
+        .map(|(_, _, cond, _, _, _, blocks, _)| (cond, blocks))
 }
