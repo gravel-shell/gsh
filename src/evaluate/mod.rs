@@ -13,6 +13,7 @@ pub enum Eval {
     If(SpecialStr, Box<Eval>, Option<Box<Eval>>),
     While(SpecialStr, Box<Eval>),
     Case(SpecialStr, Vec<(Vec<SpecialStr>, Eval)>),
+    For(String, SpecialStr, Box<Eval>),
     Break,
     Continue,
 }
@@ -44,6 +45,7 @@ impl From<Line> for Eval {
                     .map(|(pats, block)| (pats, Self::from(block)))
                     .collect(),
             ),
+            Line::For(c, iter, block) => Self::For(c, iter, Box::new(Self::from(*block))),
             Line::Break => Self::Break,
             Line::Continue => Self::Continue,
         }
@@ -118,6 +120,18 @@ impl Eval {
                         return Ok(block.eval_inner(jobs, vars)?);
                     }
                 }
+                Ok(State::Normal)
+            }
+            Self::For(c, iter, block) => {
+                for val in iter.eval()?.split('\n') {
+                    std::env::set_var(c, val);
+                    let state = block.eval_inner(jobs, vars)?;
+                    match state {
+                        State::Normal | State::Continued => continue,
+                        State::Breaked => break,
+                    }
+                }
+                std::env::remove_var(c);
                 Ok(State::Normal)
             }
             Self::Break => Ok(State::Breaked),
