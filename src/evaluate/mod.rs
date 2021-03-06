@@ -76,7 +76,7 @@ impl Eval {
             Self::If(cond, first, second) => {
                 let cond = matches!(
                     cond.eval()?.to_lowercase().as_str(),
-                    "0" | "y" | "yes" | "true"
+                    "1" | "y" | "yes" | "true"
                 );
 
                 let state = if cond {
@@ -92,7 +92,7 @@ impl Eval {
             Self::While(cond, block) => {
                 while matches!(
                         cond.eval()?.to_lowercase().as_str(),
-                        "0" | "y" | "yes" | "true"
+                        "1" | "y" | "yes" | "true"
                 ) {
                     let state = block.eval_inner(jobs, vars)?;
                     match state {
