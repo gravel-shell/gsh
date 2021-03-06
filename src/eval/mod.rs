@@ -11,9 +11,9 @@ pub enum Block {
     Single(Command),
     Multi(Vec<Block>),
     If(SpecialStr, Box<Block>, Option<Box<Block>>),
-    While(SpecialStr, Box<Block>),
     Case(SpecialStr, Vec<(Vec<SpecialStr>, Block)>),
     For(String, SpecialStr, Box<Block>),
+    While(SpecialStr, Box<Block>),
     Break,
     Continue,
 }
@@ -37,7 +37,6 @@ impl From<ParseBlk> for Block {
                 Box::new(Self::from(*first)),
                 second.map(|sec| Box::new(Self::from(*sec))),
             ),
-            ParseBlk::While(cond, block) => Self::While(cond, Box::new(Self::from(*block))),
             ParseBlk::Case(cond, blocks) => Self::Case(
                 cond,
                 blocks
@@ -46,6 +45,7 @@ impl From<ParseBlk> for Block {
                     .collect(),
             ),
             ParseBlk::For(c, iter, block) => Self::For(c, iter, Box::new(Self::from(*block))),
+            ParseBlk::While(cond, block) => Self::While(cond, Box::new(Self::from(*block))),
             ParseBlk::Break => Self::Break,
             ParseBlk::Continue => Self::Continue,
         }
@@ -99,19 +99,6 @@ impl Block {
 
                 Ok(state)
             }
-            Self::While(cond, block) => {
-                while matches!(
-                    cond.eval()?.to_lowercase().as_str(),
-                    "1" | "y" | "yes" | "true"
-                ) {
-                    let state = block.eval_inner(jobs, vars)?;
-                    match state {
-                        State::Normal | State::Continued => continue,
-                        State::Breaked => break,
-                    }
-                }
-                Ok(State::Normal)
-            }
             Self::Case(cond, blocks) => {
                 let cond = cond.eval()?;
                 for (pats, block) in blocks.iter() {
@@ -135,6 +122,19 @@ impl Block {
                     }
                 }
                 std::env::remove_var(c);
+                Ok(State::Normal)
+            }
+            Self::While(cond, block) => {
+                while matches!(
+                    cond.eval()?.to_lowercase().as_str(),
+                    "1" | "y" | "yes" | "true"
+                ) {
+                    let state = block.eval_inner(jobs, vars)?;
+                    match state {
+                        State::Normal | State::Continued => continue,
+                        State::Breaked => break,
+                    }
+                }
                 Ok(State::Normal)
             }
             Self::Break => Ok(State::Breaked),

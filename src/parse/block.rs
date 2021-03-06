@@ -9,9 +9,9 @@ pub enum Block {
     Single(Command),
     Multi(Vec<Self>),
     If(SpecialStr, Box<Self>, Option<Box<Self>>),
-    While(SpecialStr, Box<Self>),
     Case(SpecialStr, Vec<(Vec<SpecialStr>, Self)>),
     For(String, SpecialStr, Box<Self>),
+    While(SpecialStr, Box<Self>),
     Break,
     Continue,
 }
@@ -25,10 +25,10 @@ impl Block {
         choice((
             attempt(char::string("break")).map(|_| Self::Break),
             attempt(char::string("continue")).map(|_| Self::Continue),
-            if_().map(|(cond, first, second)| Self::If(cond, first, second)),
             while_().map(|(cond, block)| Self::While(cond, block)),
-            case().map(|(cond, blocks)| Self::Case(cond, blocks)),
             for_().map(|(c, iter, block)| Self::For(c, iter, block)),
+            case().map(|(cond, blocks)| Self::Case(cond, blocks)),
+            if_().map(|(cond, first, second)| Self::If(cond, first, second)),
             multi().map(|lines| Self::Multi(lines)),
             Command::parse().map(|cmd| Self::Single(cmd)),
         ))
@@ -74,17 +74,6 @@ fn if_<I: Stream<Token = char>>(
         .map(|(_, _, cond, _, first, _, second)| (cond, first, second))
 }
 
-fn while_<I: Stream<Token = char>>() -> impl Parser<I, Output = (SpecialStr, Box<Block>)> {
-    (
-        attempt(char::string("while")),
-        spaces_line(),
-        SpecialStr::parse(),
-        spaces_line(),
-        Block::parse().map(|line| Box::new(line)),
-    )
-        .map(|(_, _, cond, _, block)| (cond, block))
-}
-
 fn case<I: Stream<Token = char>>(
 ) -> impl Parser<I, Output = (SpecialStr, Vec<(Vec<SpecialStr>, Block)>)> {
     (
@@ -125,4 +114,15 @@ fn for_<I: Stream<Token = char>>() -> impl Parser<I, Output = (String, SpecialSt
         Block::parse().map(|line| Box::new(line)),
     )
         .map(|(_, _, c, _, _, _, iter, _, block)| (c, iter, block))
+}
+
+fn while_<I: Stream<Token = char>>() -> impl Parser<I, Output = (SpecialStr, Box<Block>)> {
+    (
+        attempt(char::string("while")),
+        spaces_line(),
+        SpecialStr::parse(),
+        spaces_line(),
+        Block::parse().map(|line| Box::new(line)),
+    )
+        .map(|(_, _, cond, _, block)| (cond, block))
 }
