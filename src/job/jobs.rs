@@ -95,6 +95,9 @@ impl Jobs {
                 self.0.insert(id, proc);
                 res
             }
+            Some(status) if status.interrupted() => {
+                anyhow::bail!("Interrupted");
+            }
             Some(_) => {
                 self.0.remove(&0);
                 res
@@ -150,10 +153,7 @@ impl Jobs {
     }
 
     pub fn sigint(&mut self) -> anyhow::Result<()> {
-        match self.interrupt(0)? {
-            Some(_) => eprintln!("\nInterrupt"),
-            None => (),
-        }
+        self.interrupt(0)?;
         Ok(())
     }
 

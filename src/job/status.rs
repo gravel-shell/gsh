@@ -27,6 +27,13 @@ impl Status {
         }
     }
 
+    pub fn interrupted(&self) -> bool {
+        match self {
+            Self::Signaled(Signal::SIGINT) => true,
+            _ => false,
+        }
+    }
+
     pub fn continued(&self) -> bool {
         match self {
             Self::Signaled(Signal::SIGCONT) => true,
