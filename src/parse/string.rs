@@ -3,8 +3,7 @@ extern crate unindent;
 use super::Command;
 use combine::parser::char;
 use combine::{
-    attempt, choice, count_min_max, many, many1, one_of, parser,
-    satisfy, token, value, any,
+    any, attempt, choice, count_min_max, many, many1, one_of, parser, satisfy, token, value,
 };
 use combine::{ParseError, Parser, Stream};
 use unindent::unindent;
@@ -48,7 +47,10 @@ impl SpecialStr {
                 match kind {
                     StrKind::String(s) => Ok(s.clone()),
                     StrKind::Var(key) => Ok(std::env::var(key)?),
-                    StrKind::Cmd(cmd) => Ok(crate::evaluate::Command::from(cmd.clone()).output()?),
+                    StrKind::Cmd(cmd) => Ok(crate::evaluate::Command::from(cmd.clone())
+                        .output()?
+                        .trim()
+                        .to_string()),
                 }
             })
             .collect::<Result<Vec<_>, _>>()?
@@ -108,10 +110,12 @@ fn lit<I: Stream<Token = char>>() -> impl Parser<I, Output = SpecialStr> {
 
 fn lit_str<I: Stream<Token = char>>() -> impl Parser<I, Output = String> {
     many(choice((
-        token('\\').with(any()).map(|c| if c == '"' {
-            String::from(c)
-        } else {
-            format!("\\{}", c)
+        token('\\').with(any()).map(|c| {
+            if c == '"' {
+                String::from(c)
+            } else {
+                format!("\\{}", c)
+            }
         }),
         many1(satisfy(|c| c != '"' && c != '\\')),
     )))
