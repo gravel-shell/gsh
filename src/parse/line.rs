@@ -9,6 +9,7 @@ pub enum Line {
     Single(Command),
     Multi(Vec<Line>),
     If(SpecialStr, Box<Line>, Option<Box<Line>>),
+    While(SpecialStr, Box<Line>),
     Break,
     Continue,
 }
@@ -23,6 +24,7 @@ impl Line {
             char::string("break").map(|_| Self::Break),
             char::string("continue").map(|_| Self::Continue),
             if_().map(|(cond, first, second)| Self::If(cond, first, second)),
+            while_().map(|(cond, block)| Self::While(cond, block)),
             multi().map(|lines| Self::Multi(lines)),
             Command::parse().map(|cmd| Self::Single(cmd)),
         ))
@@ -66,4 +68,14 @@ fn if_<I: Stream<Token = char>>(
         ),
     )
         .map(|(_, _, cond, _, first, _, second)| (cond, first, second))
+}
+
+fn while_<I: Stream<Token = char>>() -> impl Parser<I, Output = (SpecialStr, Box<Line>)> {
+    (
+        char::string("while"),
+        spaces_line(),
+        SpecialStr::parse(),
+        spaces_line(),
+        Line::parse().map(|line| Box::new(line)),
+    ).map(|(_, _, cond, _, block)| (cond, block))
 }

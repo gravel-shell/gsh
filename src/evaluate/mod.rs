@@ -11,6 +11,7 @@ pub enum Eval {
     Single(Command),
     Multi(Vec<Eval>),
     If(SpecialStr, Box<Eval>, Option<Box<Eval>>),
+    While(SpecialStr, Box<Eval>),
     Break,
     Continue,
 }
@@ -34,6 +35,7 @@ impl From<Line> for Eval {
                 Box::new(Self::from(*first)),
                 second.map(|sec| Box::new(Self::from(*sec))),
             ),
+            Line::While(cond, block) => Self::While(cond, Box::new(Self::from(*block))),
             Line::Break => Self::Break,
             Line::Continue => Self::Continue,
         }
@@ -86,6 +88,19 @@ impl Eval {
                 };
 
                 Ok(state)
+            }
+            Self::While(cond, block) => {
+                while matches!(
+                        cond.eval()?.to_lowercase().as_str(),
+                        "0" | "y" | "yes" | "true"
+                ) {
+                    let state = block.eval_inner(jobs, vars)?;
+                    match state {
+                        State::Normal | State::Continued => continue,
+                        State::Breaked => break,
+                    }
+                }
+                Ok(State::Normal)
             }
             Self::Break => Ok(State::Breaked),
             Self::Continue => Ok(State::Continued),
