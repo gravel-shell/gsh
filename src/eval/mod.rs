@@ -1,5 +1,7 @@
-mod command;
 mod block;
+mod command;
+mod namespace;
 
-pub use command::Command;
+pub use namespace::NameSpace;
 pub use block::Block;
+pub use command::Command;

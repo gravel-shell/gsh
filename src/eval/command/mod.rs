@@ -8,7 +8,7 @@ pub use redirect::Redirects;
 
 use crate::job::Jobs;
 use crate::parse::Command as ParseCmd;
-use crate::session::Vars;
+use super::NameSpace;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Command(External);
@@ -20,7 +20,7 @@ impl From<ParseCmd> for Command {
 }
 
 impl Command {
-    pub fn eval(&self, jobs: &mut Jobs, vars: &mut Vars) -> anyhow::Result<()> {
+    pub fn eval(&self, jobs: &mut Jobs, ns: &mut NameSpace) -> anyhow::Result<()> {
         let kind = BuiltinKind::new(self.0.name.eval()?);
 
         if let Some(kind) = kind {
@@ -32,7 +32,7 @@ impl Command {
                     .map(|arg| arg.eval())
                     .collect::<Result<Vec<_>, _>>()?,
             )
-            .eval(jobs, vars)
+            .eval(jobs, ns)
         } else {
             self.0.eval(jobs)
         }

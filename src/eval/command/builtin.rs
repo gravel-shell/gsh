@@ -1,5 +1,5 @@
 use crate::job::Jobs;
-use crate::session::Vars;
+use super::NameSpace;
 use anyhow::Context;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -20,15 +20,15 @@ impl Builtin {
         }
     }
 
-    pub fn eval(&self, jobs: &mut Jobs, vars: &mut Vars) -> anyhow::Result<()> {
+    pub fn eval(&self, jobs: &mut Jobs, ns: &mut NameSpace) -> anyhow::Result<()> {
         match self.kind {
             BuiltinKind::Empty => (),
             BuiltinKind::Exit => exit(&self.args)?,
             BuiltinKind::Cd => cd(&self.args)?,
             BuiltinKind::Fg => fg(&self.args, jobs)?,
             BuiltinKind::Jobs => println!("{:#?}", jobs),
-            BuiltinKind::Let => let_(&self.args, vars)?,
-            BuiltinKind::Export => export(&self.args, vars)?,
+            BuiltinKind::Let => let_(&self.args, ns)?,
+            BuiltinKind::Export => export(&self.args, ns)?,
         }
 
         Ok(())
@@ -110,7 +110,7 @@ pub fn fg<T: AsRef<str>, TS: AsRef<[T]>>(args: TS, jobs: &mut Jobs) -> anyhow::R
     Ok(())
 }
 
-pub fn let_<T: AsRef<str>, TS: AsRef<[T]>>(args: TS, vars: &mut Vars) -> anyhow::Result<()> {
+pub fn let_<T: AsRef<str>, TS: AsRef<[T]>>(args: TS, ns: &mut NameSpace) -> anyhow::Result<()> {
     let args = args.as_ref();
     if args.len() != 3 {
         anyhow::bail!("Unnexpected args number.");
@@ -120,11 +120,11 @@ pub fn let_<T: AsRef<str>, TS: AsRef<[T]>>(args: TS, vars: &mut Vars) -> anyhow:
         anyhow::bail!("Missing \"=\".");
     }
 
-    vars.push(args[0].as_ref(), args[2].as_ref());
+    ns.push_var(args[0].as_ref(), args[2].as_ref());
     Ok(())
 }
 
-pub fn export<T: AsRef<str>, TS: AsRef<[T]>>(args: TS, vars: &mut Vars) -> anyhow::Result<()> {
+pub fn export<T: AsRef<str>, TS: AsRef<[T]>>(args: TS, ns: &mut NameSpace) -> anyhow::Result<()> {
     let args = args.as_ref();
     if args.len() != 3 {
         anyhow::bail!("Unnexpected args number.");
@@ -134,6 +134,6 @@ pub fn export<T: AsRef<str>, TS: AsRef<[T]>>(args: TS, vars: &mut Vars) -> anyho
         anyhow::bail!("Missing \"=\".");
     }
 
-    vars.gpush(args[0].as_ref(), args[2].as_ref());
+    ns.push_gvar(args[0].as_ref(), args[2].as_ref());
     Ok(())
 }

@@ -1,8 +1,7 @@
-use super::Command;
+use super::{Command, NameSpace};
 
 use crate::job::{SharedJobs, Status};
 use crate::parse::{Block as ParseBlk, SpecialStr};
-use crate::session::Vars;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Block {
@@ -51,34 +50,34 @@ impl From<ParseBlk> for Block {
 }
 
 impl Block {
-    pub fn eval(&self, jobs: &SharedJobs, vars: &mut Vars) -> anyhow::Result<()> {
-        self.eval_inner(jobs, vars)?;
+    pub fn eval(&self, jobs: &SharedJobs, ns: &mut NameSpace) -> anyhow::Result<()> {
+        self.eval_inner(jobs, ns)?;
         Ok(())
     }
 
-    fn eval_inner(&self, jobs: &SharedJobs, vars: &mut Vars) -> anyhow::Result<State> {
+    fn eval_inner(&self, jobs: &SharedJobs, ns: &mut NameSpace) -> anyhow::Result<State> {
         match self {
+            Self::Single(cmd) => {
+                jobs.with(|jobs| cmd.eval(jobs, ns))?;
+                let stat = jobs.wait_fg()?;
+                if let Some(Status::Exited(code)) = stat {
+                    ns.push_var("status", code.to_string());
+                }
+                Ok(State::Normal)
+            }
             Self::Multi(lines) => {
-                vars.mark();
+                ns.mark();
                 for line in lines.iter() {
-                    let state = line.eval_inner(jobs, vars)?;
+                    let state = line.eval_inner(jobs, ns)?;
                     match state {
                         State::Normal => continue,
                         State::Breaked | State::Continued => {
-                            vars.drop();
+                            ns.drop();
                             return Ok(state);
                         }
                     }
                 }
-                vars.drop();
-                Ok(State::Normal)
-            }
-            Self::Single(cmd) => {
-                jobs.with(|jobs| cmd.eval(jobs, vars))?;
-                let stat = jobs.wait_fg()?;
-                if let Some(Status::Exited(code)) = stat {
-                    vars.push("status", code.to_string());
-                }
+                ns.drop();
                 Ok(State::Normal)
             }
             Self::If(cond, first, second) => {
@@ -88,9 +87,9 @@ impl Block {
                 );
 
                 let state = if cond {
-                    first.eval_inner(jobs, vars)?
+                    first.eval_inner(jobs, ns)?
                 } else if let Some(sec) = second {
-                    sec.eval_inner(jobs, vars)?
+                    sec.eval_inner(jobs, ns)?
                 } else {
                     State::Normal
                 };
@@ -105,21 +104,22 @@ impl Block {
                         .map(|pat| pat.eval())
                         .collect::<Result<Vec<_>, _>>()?;
                     if pats.into_iter().any(|pat| pat == cond) {
-                        return Ok(block.eval_inner(jobs, vars)?);
+                        return Ok(block.eval_inner(jobs, ns)?);
                     }
                 }
                 Ok(State::Normal)
             }
             Self::For(c, iter, block) => {
+                ns.mark();
                 for val in iter.eval()?.split('\n') {
-                    std::env::set_var(c, val);
-                    let state = block.eval_inner(jobs, vars)?;
+                    ns.push_var(c, val);
+                    let state = block.eval_inner(jobs, ns)?;
                     match state {
                         State::Normal | State::Continued => continue,
                         State::Breaked => break,
                     }
                 }
-                std::env::remove_var(c);
+                ns.drop();
                 Ok(State::Normal)
             }
             Self::While(cond, block) => {
@@ -127,7 +127,7 @@ impl Block {
                     cond.eval()?.to_lowercase().as_str(),
                     "1" | "y" | "yes" | "true"
                 ) {
-                    let state = block.eval_inner(jobs, vars)?;
+                    let state = block.eval_inner(jobs, ns)?;
                     match state {
                         State::Normal | State::Continued => continue,
                         State::Breaked => break,

@@ -1,15 +1,11 @@
-use crate::eval::Block;
+use crate::eval::{Block, NameSpace};
 use crate::job::SharedJobs;
 use crate::parse::{parse_line, Parsed};
-
-mod vars;
-
-pub use vars::Vars;
 
 pub struct Session<T> {
     reader: T,
     jobs: SharedJobs,
-    vars: Vars,
+    namespace: NameSpace,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -30,7 +26,7 @@ impl<T: Reader> Session<T> {
         Ok(Self {
             reader: T::init(&jobs)?,
             jobs,
-            vars: Vars::default(),
+            namespace: NameSpace::default(),
         })
     }
 
@@ -69,7 +65,7 @@ impl<T: Reader> Session<T> {
         eprintln!("{:?}", line);
         let block = Block::from(line);
 
-        match block.eval(&self.jobs, &mut self.vars) {
+        match block.eval(&self.jobs, &mut self.namespace) {
             Ok(_) => (),
             Err(e) => {
                 eprintln!("{}", e);
