@@ -88,13 +88,13 @@ impl External {
         }
 
         if let Some(pipe) = &self.pipe {
-            pipe.pipe_from(child)
+            pipe.pipe_from(child, output)
         } else {
             Ok(child)
         }
     }
 
-    fn pipe_from(&self, other: Child) -> anyhow::Result<Child> {
+    fn pipe_from(&self, other: Child, output: bool) -> anyhow::Result<Child> {
         let mut child = Command::new(&self.name.eval()?);
         child.args(
             &self
@@ -104,7 +104,7 @@ impl External {
                 .collect::<Result<Vec<_>, _>>()?,
         );
 
-        let heredoc = self.reds.redirect(&mut child, true, self.pipe.is_some())?;
+        let heredoc = self.reds.redirect(&mut child, true, output || self.pipe.is_some())?;
 
         child.stdin(Stdio::from(other.stdout.unwrap()));
 
@@ -116,7 +116,7 @@ impl External {
         }
 
         if let Some(pipe) = &self.pipe {
-            pipe.pipe_from(child)
+            pipe.pipe_from(child, output)
         } else {
             Ok(child)
         }

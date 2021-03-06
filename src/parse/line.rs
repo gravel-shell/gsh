@@ -1,7 +1,7 @@
 use super::{spaces_line, Command, SpecialStr};
 
 use combine::parser::char;
-use combine::{choice, optional, Parser, Stream};
+use combine::{attempt, choice, optional, Parser, Stream};
 use combine::{sep_end_by, token};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -21,8 +21,8 @@ impl Line {
 
     fn parse_<I: Stream<Token = char>>() -> impl Parser<I, Output = Self> {
         choice((
-            char::string("break").map(|_| Self::Break),
-            char::string("continue").map(|_| Self::Continue),
+            attempt(char::string("break")).map(|_| Self::Break),
+            attempt(char::string("continue")).map(|_| Self::Continue),
             if_().map(|(cond, first, second)| Self::If(cond, first, second)),
             while_().map(|(cond, block)| Self::While(cond, block)),
             multi().map(|lines| Self::Multi(lines)),
@@ -52,7 +52,7 @@ fn multi<I: Stream<Token = char>>() -> impl Parser<I, Output = Vec<Line>> {
 fn if_<I: Stream<Token = char>>(
 ) -> impl Parser<I, Output = (SpecialStr, Box<Line>, Option<Box<Line>>)> {
     (
-        char::string("if"),
+        attempt(char::string("if")),
         spaces_line(),
         SpecialStr::parse(),
         spaces_line(),
@@ -72,7 +72,7 @@ fn if_<I: Stream<Token = char>>(
 
 fn while_<I: Stream<Token = char>>() -> impl Parser<I, Output = (SpecialStr, Box<Line>)> {
     (
-        char::string("while"),
+        attempt(char::string("while")),
         spaces_line(),
         SpecialStr::parse(),
         spaces_line(),
