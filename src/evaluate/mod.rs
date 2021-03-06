@@ -10,6 +10,8 @@ pub enum Eval {
     Single(Command),
     Multi(Vec<Eval>),
     If(SpecialStr, Box<Eval>, Option<Box<Eval>>),
+    Break,
+    Continue,
 }
 
 impl From<Line> for Eval {
@@ -24,6 +26,8 @@ impl From<Line> for Eval {
                 Box::new(Eval::from(*first)),
                 second.map(|sec| Box::new(Eval::from(*sec))),
             ),
+            Line::Break => Self::Break,
+            Line::Continue => Self::Continue,
         }
     }
 }
@@ -61,6 +65,8 @@ impl Eval {
 
                 Ok(())
             }
+            Self::Break => Ok(()),
+            Self::Continue => Ok(()),
         }
     }
 }

@@ -9,6 +9,8 @@ pub enum Line {
     Single(Command),
     Multi(Vec<Line>),
     If(SpecialStr, Box<Line>, Option<Box<Line>>),
+    Break,
+    Continue,
 }
 
 impl Line {
@@ -21,6 +23,8 @@ impl Line {
             if_().map(|(cond, first, second)| Self::If(cond, first, second)),
             multi().map(|lines| Self::Multi(lines)),
             Command::parse().map(|cmd| Self::Single(cmd)),
+            char::string("break").map(|_| Self::Break),
+            char::string("continue").map(|_| Self::Continue),
         ))
     }
 }
