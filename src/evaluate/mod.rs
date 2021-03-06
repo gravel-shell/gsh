@@ -6,12 +6,20 @@ use crate::job::{SharedJobs, Status};
 use crate::parse::{Line, SpecialStr};
 use crate::session::Vars;
 
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Eval {
     Single(Command),
     Multi(Vec<Eval>),
     If(SpecialStr, Box<Eval>, Option<Box<Eval>>),
     Break,
     Continue,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum State {
+    Normal,
+    Breaked,
+    Continued,
 }
 
 impl From<Line> for Eval {
@@ -34,14 +42,26 @@ impl From<Line> for Eval {
 
 impl Eval {
     pub fn eval(&self, jobs: &SharedJobs, vars: &mut Vars) -> anyhow::Result<()> {
+        self.eval_inner(jobs, vars)?;
+        Ok(())
+    }
+
+    fn eval_inner(&self, jobs: &SharedJobs, vars: &mut Vars) -> anyhow::Result<State> {
         match self {
             Self::Multi(lines) => {
                 vars.mark();
                 for line in lines.iter() {
-                    line.eval(jobs, vars)?;
-                }
+                    let state = line.eval_inner(jobs, vars)?;
+                    match state {
+                        State::Normal => continue,
+                        State::Breaked | State::Continued => {
+                            vars.drop();
+                            return Ok(state);
+                        }
+                    }
+                };
                 vars.drop();
-                Ok(())
+                Ok(State::Normal)
             }
             Self::Single(cmd) => {
                 jobs.with(|jobs| cmd.eval(jobs, vars))?;
@@ -49,7 +69,7 @@ impl Eval {
                 if let Some(Status::Exited(code)) = stat {
                     vars.push("status", code.to_string());
                 }
-                Ok(())
+                Ok(State::Normal)
             }
             Self::If(cond, first, second) => {
                 let cond = matches!(
@@ -57,16 +77,18 @@ impl Eval {
                     "0" | "y" | "yes" | "true"
                 );
 
-                if cond {
-                    first.eval(jobs, vars)?;
+                let state = if cond {
+                    first.eval_inner(jobs, vars)?
                 } else if let Some(sec) = second {
-                    sec.eval(jobs, vars)?;
-                }
+                    sec.eval_inner(jobs, vars)?
+                } else {
+                    State::Normal
+                };
 
-                Ok(())
+                Ok(state)
             }
-            Self::Break => Ok(()),
-            Self::Continue => Ok(()),
+            Self::Break => Ok(State::Breaked),
+            Self::Continue => Ok(State::Continued),
         }
     }
 }
