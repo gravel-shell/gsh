@@ -1,6 +1,6 @@
 extern crate anyhow;
 
-mod evaluate;
+mod eval;
 mod job;
 mod parse;
 mod prompt;

@@ -47,7 +47,7 @@ impl SpecialStr {
                 match kind {
                     StrKind::String(s) => Ok(s.clone()),
                     StrKind::Var(key) => Ok(std::env::var(key)?),
-                    StrKind::Cmd(cmd) => Ok(crate::evaluate::Command::from(cmd.clone())
+                    StrKind::Cmd(cmd) => Ok(crate::eval::Command::from(cmd.clone())
                         .output()?
                         .trim()
                         .to_string()),
