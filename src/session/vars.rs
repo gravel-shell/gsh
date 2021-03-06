@@ -10,8 +10,11 @@ impl Vars {
     pub fn push<T: Into<String>, U: AsRef<str>>(&mut self, key: T, value: U) {
         let key = key.into();
         let value = value.as_ref();
+        let exists = env::var(&key).is_ok();
         env::set_var(&key, value);
-        self.keys.push(key);
+        if !exists {
+            self.keys.push(key);
+        }
     }
 
     pub fn gpush<T: AsRef<str>, U: AsRef<str>>(&mut self, key: T, value: U) {
