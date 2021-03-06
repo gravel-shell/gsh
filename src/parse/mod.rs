@@ -1,13 +1,13 @@
 extern crate combine;
 
+mod block;
 mod chars;
 mod command;
-mod block;
 mod redirect;
 mod string;
 
-pub use command::{Arg, Command};
 pub use block::Block;
+pub use command::{Arg, Command};
 pub use redirect::{RedKind, RedTarget, Redirect};
 pub use string::SpecialStr;
 

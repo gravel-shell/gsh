@@ -6,9 +6,9 @@ pub use builtin::{Builtin, BuiltinKind};
 pub use external::External;
 pub use redirect::Redirects;
 
+use super::NameSpace;
 use crate::job::Jobs;
 use crate::parse::Command as ParseCmd;
-use super::NameSpace;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Command(External);
