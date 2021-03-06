@@ -18,13 +18,13 @@ impl From<Line> for Eval {
     fn from(line: Line) -> Self {
         match line {
             Line::Multi(lines) => {
-                Self::Multi(lines.into_iter().map(|line| Eval::from(line)).collect())
+                Self::Multi(lines.into_iter().map(|line| Self::from(line)).collect())
             }
             Line::Single(cmd) => Self::Single(Command::from(cmd)),
             Line::If(cond, first, second) => Self::If(
                 cond,
-                Box::new(Eval::from(*first)),
-                second.map(|sec| Box::new(Eval::from(*sec))),
+                Box::new(Self::from(*first)),
+                second.map(|sec| Box::new(Self::from(*sec))),
             ),
             Line::Break => Self::Break,
             Line::Continue => Self::Continue,
