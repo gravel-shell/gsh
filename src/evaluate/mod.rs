@@ -111,8 +111,10 @@ impl Eval {
                 Ok(State::Normal)
             }
             Self::Case(cond, blocks) => {
+                let cond = cond.eval()?;
                 for (pats, block) in blocks.iter() {
-                    if pats.iter().any(|pat| pat == cond) {
+                    let pats = pats.iter().map(|pat| pat.eval()).collect::<Result<Vec<_>, _>>()?;
+                    if pats.into_iter().any(|pat| pat == cond) {
                         return Ok(block.eval_inner(jobs, vars)?);
                     }
                 }
