@@ -43,7 +43,8 @@ fn multi<I: Stream<Token = char>>() -> impl Parser<I, Output = Vec<Line>> {
         .skip(token('}'))
 }
 
-fn if_<I: Stream<Token = char>>() -> impl Parser<I, Output = (SpecialStr, Box<Line>, Option<Box<Line>>)> {
+fn if_<I: Stream<Token = char>>(
+) -> impl Parser<I, Output = (SpecialStr, Box<Line>, Option<Box<Line>>)> {
     (
         char::string("if"),
         spaces_line(),

@@ -68,9 +68,17 @@ impl External {
 
     fn child(&self, output: bool) -> anyhow::Result<Child> {
         let mut child = Command::new(&self.name.eval()?);
-        child.args(&self.args.iter().map(|arg| arg.eval()).collect::<Result<Vec<_>, _>>()?);
+        child.args(
+            &self
+                .args
+                .iter()
+                .map(|arg| arg.eval())
+                .collect::<Result<Vec<_>, _>>()?,
+        );
 
-        let heredoc = self.reds.redirect(&mut child, false, output || self.pipe.is_some())?;
+        let heredoc = self
+            .reds
+            .redirect(&mut child, false, output || self.pipe.is_some())?;
 
         let mut child = child.spawn()?;
 
@@ -88,7 +96,13 @@ impl External {
 
     fn pipe_from(&self, other: Child) -> anyhow::Result<Child> {
         let mut child = Command::new(&self.name.eval()?);
-        child.args(&self.args.iter().map(|arg| arg.eval()).collect::<Result<Vec<_>, _>>()?);
+        child.args(
+            &self
+                .args
+                .iter()
+                .map(|arg| arg.eval())
+                .collect::<Result<Vec<_>, _>>()?,
+        );
 
         let heredoc = self.reds.redirect(&mut child, true, self.pipe.is_some())?;
 

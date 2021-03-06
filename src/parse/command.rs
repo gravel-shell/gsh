@@ -58,6 +58,7 @@ pub enum Arg {
 
 impl Arg {
     pub fn parse<I: Stream<Token = char>>() -> impl Parser<I, Output = Self> {
-        attempt(Redirect::parse().map(|r| Self::Redirect(r))).or(SpecialStr::parse().map(|s| Self::Arg(s)))
+        attempt(Redirect::parse().map(|r| Self::Redirect(r)))
+            .or(SpecialStr::parse().map(|s| Self::Arg(s)))
     }
 }
