@@ -12,6 +12,7 @@ pub enum Block {
     Case(SpecialStr, Vec<(Vec<SpecialStr>, Self)>),
     For(String, SpecialStr, Box<Self>),
     While(SpecialStr, Box<Self>),
+    Proc(String, Box<Self>),
     Break,
     Continue,
 }
@@ -22,10 +23,10 @@ impl Block {
     }
 
     fn parse_<I: Stream<Token = char>>() -> impl Parser<I, Output = Self> {
-        spaces_line().with(
-        choice((
+        spaces_line().with(choice((
             attempt(char::string("break")).map(|_| Self::Break),
             attempt(char::string("continue")).map(|_| Self::Continue),
+            proc().map(|(name, block)| Self::Proc(name, block)),
             while_().map(|(cond, block)| Self::While(cond, block)),
             for_().map(|(c, iter, block)| Self::For(c, iter, block)),
             case().map(|(cond, blocks)| Self::Case(cond, blocks)),
@@ -126,4 +127,14 @@ fn while_<I: Stream<Token = char>>() -> impl Parser<I, Output = (SpecialStr, Box
         Block::parse().map(|line| Box::new(line)),
     )
         .map(|(_, _, cond, _, block)| (cond, block))
+}
+
+fn proc<I: Stream<Token = char>>() -> impl Parser<I, Output = (String, Box<Block>)> {
+    attempt((
+        many1(satisfy(|c: char| !c.is_whitespace() && c != '{')),
+        spaces_line(),
+        combine::look_ahead(token('{')),
+    ))
+    .map(|(name, _, _)| name)
+    .and(multi().map(|blocks| Box::new(Block::Multi(blocks))))
 }

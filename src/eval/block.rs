@@ -5,11 +5,12 @@ use crate::parse::{Block as ParseBlk, SpecialStr};
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Block {
     Single(Command),
-    Multi(Vec<Block>),
-    If(SpecialStr, Box<Block>, Option<Box<Block>>),
-    Case(SpecialStr, Vec<(Vec<SpecialStr>, Block)>),
-    For(String, SpecialStr, Box<Block>),
-    While(SpecialStr, Box<Block>),
+    Multi(Vec<Self>),
+    If(SpecialStr, Box<Self>, Option<Box<Self>>),
+    Case(SpecialStr, Vec<(Vec<SpecialStr>, Self)>),
+    For(String, SpecialStr, Box<Self>),
+    While(SpecialStr, Box<Self>),
+    Proc(String, Box<Self>),
     Break,
     Continue,
 }
@@ -42,6 +43,7 @@ impl From<ParseBlk> for Block {
             ),
             ParseBlk::For(c, iter, block) => Self::For(c, iter, Box::new(Self::from(*block))),
             ParseBlk::While(cond, block) => Self::While(cond, Box::new(Self::from(*block))),
+            ParseBlk::Proc(name, block) => Self::Proc(name, Box::new(Self::from(*block))),
             ParseBlk::Break => Self::Break,
             ParseBlk::Continue => Self::Continue,
         }
@@ -132,6 +134,10 @@ impl Block {
                         State::Breaked => break,
                     }
                 }
+                Ok(State::Normal)
+            }
+            Self::Proc(name, block) => {
+                ns.push_proc(name, (**block).clone());
                 Ok(State::Normal)
             }
             Self::Break => Ok(State::Breaked),
