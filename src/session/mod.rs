@@ -1,6 +1,8 @@
 mod prompt;
+mod io;
 
 pub use prompt::PromptReader;
+pub use io::IOReader;
 
 use crate::eval::{Block, NameSpace};
 use crate::job::SharedJobs;
@@ -12,7 +14,10 @@ pub struct Session<T> {
 }
 
 pub trait Reader: Sized {
-    fn init(&mut self, jobs: &SharedJobs) -> anyhow::Result<()>;
+    #[allow(unused_variables)]
+    fn init(&mut self, jobs: &SharedJobs) -> anyhow::Result<()> {
+        Ok(())
+    }
     fn next_line(&mut self) -> anyhow::Result<Option<String>>;
     fn more_line(&mut self) -> anyhow::Result<Option<String>> {
         self.next_line()

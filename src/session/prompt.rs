@@ -2,7 +2,7 @@ extern crate rustyline;
 extern crate signal_hook;
 
 use crate::job::SharedJobs;
-use crate::session::Reader;
+use super::Reader;
 use anyhow::Context;
 use rustyline::{error::ReadlineError, Editor};
 use signal_hook::consts::signal;

@@ -138,5 +138,12 @@ pub fn export<T: AsRef<str>, TS: AsRef<[T]>>(args: TS, ns: &mut NameSpace) -> an
 }
 
 pub fn source<T: AsRef<str>, TS: AsRef<[T]>>(args: TS, ns: &mut NameSpace) -> anyhow::Result<()> {
+    use crate::session::{Session, IOReader};
+
+    let mut args = args.as_ref().iter();
+    let name = args.next().context("Specify the file to run.")?;
+
+    let mut session = Session::new(IOReader::new_file(name.as_ref())?)?;
+    session.all_with_args(ns, name, args)?;
     Ok(())
 }
