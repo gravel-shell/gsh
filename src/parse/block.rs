@@ -22,6 +22,7 @@ impl Block {
     }
 
     fn parse_<I: Stream<Token = char>>() -> impl Parser<I, Output = Self> {
+        spaces_line().with(
         choice((
             attempt(char::string("break")).map(|_| Self::Break),
             attempt(char::string("continue")).map(|_| Self::Continue),
@@ -31,7 +32,7 @@ impl Block {
             if_().map(|(cond, first, second)| Self::If(cond, first, second)),
             multi().map(|lines| Self::Multi(lines)),
             Command::parse().map(|cmd| Self::Single(cmd)),
-        ))
+        )))
     }
 }
 
