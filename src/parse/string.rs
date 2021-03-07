@@ -16,6 +16,7 @@ enum StrKind {
     String(String),
     Var(String),
     Cmd(Command),
+    Pid(usize),
 }
 
 impl From<String> for SpecialStr {
@@ -39,7 +40,11 @@ impl SpecialStr {
         ))
     }
 
-    pub fn eval(&self) -> anyhow::Result<String> {
+    pub fn eval_shared(&self, jobs: &crate::job::SharedJobs) -> anyhow::Result<String> {
+        jobs.with(|jobs| self.eval(jobs))
+    }
+
+    pub fn eval(&self, jobs: &mut crate::job::Jobs) -> anyhow::Result<String> {
         Ok(self
             .0
             .iter()
@@ -48,9 +53,10 @@ impl SpecialStr {
                     StrKind::String(s) => Ok(s.clone()),
                     StrKind::Var(key) => Ok(std::env::var(key)?),
                     StrKind::Cmd(cmd) => Ok(crate::eval::Command::from(cmd.clone())
-                        .output()?
+                        .output(jobs)?
                         .trim()
                         .to_string()),
+                    StrKind::Pid(id) => Ok(jobs.get_pid(id)?.to_string()),
                 }
             })
             .collect::<Result<Vec<_>, _>>()?
@@ -62,6 +68,7 @@ fn direct<I: Stream<Token = char>>() -> impl Parser<I, Output = SpecialStr> {
     many1(choice((
         command().map(|c| StrKind::Cmd(c)),
         env().map(|s| StrKind::Var(s)),
+        pid().map(|i| StrKind::Pid(i)),
         direct_str().map(|s| StrKind::String(s)),
     )))
     .map(|strs| SpecialStr(strs))
@@ -128,10 +135,11 @@ fn lit_reparse<I: Stream<Token = char>>() -> impl Parser<I, Output = SpecialStr>
     many1(choice((
         command().map(|c| StrKind::Cmd(c)),
         env().map(|s| StrKind::Var(s)),
+        pid().map(|i| StrKind::Pid(i)),
         many1(satisfy(|c| c != '$' && c != '(').then(|c| {
             if c == '\\' {
                 choice((
-                    one_of("abefnrtv$(\\".chars()).map(|seq| match seq {
+                    one_of("abefnrtv%$(\\".chars()).map(|seq| match seq {
                         'a' => '\x07',
                         'b' => '\x08',
                         'e' => '\x1b',
@@ -140,6 +148,7 @@ fn lit_reparse<I: Stream<Token = char>>() -> impl Parser<I, Output = SpecialStr>
                         'r' => '\r',
                         't' => '\t',
                         'v' => '\x0b',
+                        '%' => '%',
                         '$' => '$',
                         '(' => '(',
                         '\\' => '\\',
@@ -190,4 +199,10 @@ fn env<I: Stream<Token = char>>() -> impl Parser<I, Output = String> {
 
 fn command<I: Stream<Token = char>>() -> impl Parser<I, Output = Command> {
     token('(').with(Command::parse()).skip(token(')'))
+}
+
+fn pid<I: Stream<Token = char>>() -> impl Parser<I, Output = usize> {
+    token('%')
+        .with(many1(char::digit()))
+        .map(|id: String| id.parse().unwrap())
 }

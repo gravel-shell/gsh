@@ -50,7 +50,7 @@ impl From<ParseCmd> for External {
 
 impl External {
     pub fn eval(&self, jobs: &mut Jobs) -> anyhow::Result<()> {
-        let child = self.child(false)?;
+        let child = self.child(jobs, false)?;
         if self.bg {
             let (id, pid) = jobs.new_bg(child.id() as i32)?;
             println!("Job %{} ({}) has started.", id, pid);
@@ -60,25 +60,25 @@ impl External {
         Ok(())
     }
 
-    pub fn output(&self) -> anyhow::Result<String> {
-        let child = self.child(true)?;
+    pub fn output(&self, jobs: &mut Jobs) -> anyhow::Result<String> {
+        let child = self.child(jobs, true)?;
         let output = child.wait_with_output()?;
         Ok(String::from_utf8(output.stdout)?)
     }
 
-    fn child(&self, output: bool) -> anyhow::Result<Child> {
-        let mut child = Command::new(&self.name.eval()?);
+    fn child(&self, jobs: &mut Jobs, output: bool) -> anyhow::Result<Child> {
+        let mut child = Command::new(&self.name.eval(jobs)?);
         child.args(
             &self
                 .args
                 .iter()
-                .map(|arg| arg.eval())
+                .map(|arg| arg.eval(jobs))
                 .collect::<Result<Vec<_>, _>>()?,
         );
 
         let heredoc = self
             .reds
-            .redirect(&mut child, false, output || self.pipe.is_some())?;
+            .redirect(&mut child, jobs, false, output || self.pipe.is_some())?;
 
         let mut child = child.spawn()?;
 
@@ -88,25 +88,25 @@ impl External {
         }
 
         if let Some(pipe) = &self.pipe {
-            pipe.pipe_from(child, output)
+            pipe.pipe_from(child, jobs, output)
         } else {
             Ok(child)
         }
     }
 
-    fn pipe_from(&self, other: Child, output: bool) -> anyhow::Result<Child> {
-        let mut child = Command::new(&self.name.eval()?);
+    fn pipe_from(&self, other: Child, jobs: &mut Jobs, output: bool) -> anyhow::Result<Child> {
+        let mut child = Command::new(&self.name.eval(jobs)?);
         child.args(
             &self
                 .args
                 .iter()
-                .map(|arg| arg.eval())
+                .map(|arg| arg.eval(jobs))
                 .collect::<Result<Vec<_>, _>>()?,
         );
 
         let heredoc = self
             .reds
-            .redirect(&mut child, true, output || self.pipe.is_some())?;
+            .redirect(&mut child, jobs, true, output || self.pipe.is_some())?;
 
         child.stdin(Stdio::from(other.stdout.unwrap()));
 
@@ -118,7 +118,7 @@ impl External {
         }
 
         if let Some(pipe) = &self.pipe {
-            pipe.pipe_from(child, output)
+            pipe.pipe_from(child, jobs, output)
         } else {
             Ok(child)
         }

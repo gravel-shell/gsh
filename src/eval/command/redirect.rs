@@ -13,10 +13,11 @@ impl Redirects {
     pub fn redirect(
         &self,
         cmd: &mut Command,
+        jobs: &mut crate::job::Jobs,
         piped_in: bool,
         piped_out: bool,
     ) -> anyhow::Result<Option<Vec<u8>>> {
-        self.0.redirect(cmd, piped_in, piped_out)
+        self.0.redirect(cmd, jobs, piped_in, piped_out)
     }
 }
 
@@ -88,18 +89,19 @@ impl RedirectsInner {
     fn redirect(
         &self,
         cmd: &mut Command,
+        jobs: &mut crate::job::Jobs,
         piped_in: bool,
         piped_out: bool,
     ) -> anyhow::Result<Option<Vec<u8>>> {
         let stdin = match self {
             Self::Bind(stdin, Some(stdout)) if piped_out => {
-                let err = stdout.mode.option().open(&stdout.target.eval()?)?;
+                let err = stdout.mode.option().open(&stdout.target.eval(jobs)?)?;
                 cmd.stdout(Stdio::piped());
                 cmd.stderr(Stdio::from(err));
                 stdin
             }
             Self::Bind(stdin, Some(stdout)) => {
-                let out = stdout.mode.option().open(&stdout.target.eval()?)?;
+                let out = stdout.mode.option().open(&stdout.target.eval(jobs)?)?;
                 let err = out.try_clone()?;
                 cmd.stdout(Stdio::from(out));
                 cmd.stderr(Stdio::from(err));
@@ -114,12 +116,12 @@ impl RedirectsInner {
                 if piped_out {
                     cmd.stdout(Stdio::piped());
                 } else if let Some(stdout) = stdout {
-                    let out = stdout.mode.option().open(&stdout.target.eval()?)?;
+                    let out = stdout.mode.option().open(&stdout.target.eval(jobs)?)?;
                     cmd.stdout(Stdio::from(out));
                 }
 
                 if let Some(stderr) = stderr {
-                    let err = stderr.mode.option().open(&stderr.target.eval()?)?;
+                    let err = stderr.mode.option().open(&stderr.target.eval(jobs)?)?;
                     cmd.stderr(Stdio::from(err));
                 }
 
@@ -131,7 +133,7 @@ impl RedirectsInner {
         if piped_in {
             cmd.stdin(Stdio::piped());
         } else if let Some(stdin) = stdin {
-            let target = stdin.target.eval()?;
+            let target = stdin.target.eval(jobs)?;
             match stdin.mode {
                 InMode::Normal => {
                     cmd.stdin(Stdio::from(File::open(&target)?));

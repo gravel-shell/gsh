@@ -95,15 +95,9 @@ pub fn fg<T: AsRef<str>, TS: AsRef<[T]>>(args: TS, jobs: &mut Jobs) -> anyhow::R
 
     let id = args[0].as_ref();
 
-    let id = if id.chars().next() == Some('%') {
-        id.get(1..)
-            .context("Unexpected end.")?
-            .parse::<usize>()
-            .context("Failed to parse a number.")?
-    } else {
-        jobs.from_pid(id.parse().context("Failed to parse a number.")?)
-            .context("Can't find such a process.")?
-    };
+    let id = jobs
+        .from_pid(id.parse().context("Failed to parse a number.")?)
+        .context("Can't find such a process.")?;
 
     jobs.to_fg(id)?;
 

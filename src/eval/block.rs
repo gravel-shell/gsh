@@ -1,5 +1,4 @@
 use super::{Command, NameSpace};
-
 use crate::job::{SharedJobs, Status};
 use crate::parse::{Block as ParseBlk, SpecialStr};
 
@@ -82,7 +81,7 @@ impl Block {
             }
             Self::If(cond, first, second) => {
                 let cond = matches!(
-                    cond.eval()?.to_lowercase().as_str(),
+                    cond.eval_shared(jobs)?.to_lowercase().as_str(),
                     "1" | "y" | "yes" | "true"
                 );
 
@@ -97,11 +96,11 @@ impl Block {
                 Ok(state)
             }
             Self::Case(cond, blocks) => {
-                let cond = cond.eval()?;
+                let cond = cond.eval_shared(jobs)?;
                 for (pats, block) in blocks.iter() {
                     let pats = pats
                         .iter()
-                        .map(|pat| pat.eval())
+                        .map(|pat| pat.eval_shared(jobs))
                         .collect::<Result<Vec<_>, _>>()?;
                     if pats.into_iter().any(|pat| pat == cond) {
                         return Ok(block.eval_inner(jobs, ns)?);
@@ -111,7 +110,7 @@ impl Block {
             }
             Self::For(c, iter, block) => {
                 ns.mark();
-                for val in iter.eval()?.split('\n') {
+                for val in iter.eval_shared(jobs)?.split('\n') {
                     ns.push_var(c, val);
                     let state = block.eval_inner(jobs, ns)?;
                     match state {
@@ -124,7 +123,7 @@ impl Block {
             }
             Self::While(cond, block) => {
                 while matches!(
-                    cond.eval()?.to_lowercase().as_str(),
+                    cond.eval_shared(jobs)?.to_lowercase().as_str(),
                     "1" | "y" | "yes" | "true"
                 ) {
                     let state = block.eval_inner(jobs, ns)?;

@@ -202,6 +202,11 @@ impl Jobs {
         self.0.iter().find(|(_, v)| v.pid() == pid).map(|(k, _)| *k)
     }
 
+    pub fn get_pid(&self, id: &usize) -> anyhow::Result<i32> {
+        let proc = self.0.get(id).context("Failed to get the process number.")?;
+        Ok((*proc).into())
+    }
+
     fn get_available_id(&self) -> usize {
         (1..).find(|i| !self.0.contains_key(&i)).unwrap()
     }

@@ -21,7 +21,7 @@ impl From<ParseCmd> for Command {
 
 impl Command {
     pub fn eval(&self, jobs: &mut Jobs, ns: &mut NameSpace) -> anyhow::Result<()> {
-        let kind = BuiltinKind::new(self.0.name.eval()?);
+        let kind = BuiltinKind::new(self.0.name.eval(jobs)?);
 
         if let Some(kind) = kind {
             Builtin::new(
@@ -29,7 +29,7 @@ impl Command {
                 self.0
                     .args
                     .iter()
-                    .map(|arg| arg.eval())
+                    .map(|arg| arg.eval(jobs))
                     .collect::<Result<Vec<_>, _>>()?,
             )
             .eval(jobs, ns)
@@ -38,7 +38,7 @@ impl Command {
         }
     }
 
-    pub fn output(&self) -> anyhow::Result<String> {
-        self.0.output()
+    pub fn output(&self, jobs: &mut Jobs) -> anyhow::Result<String> {
+        self.0.output(jobs)
     }
 }
