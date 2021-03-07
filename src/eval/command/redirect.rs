@@ -1,4 +1,5 @@
 use crate::parse::{RedKind, RedTarget, Redirect, SpecialStr};
+use crate::job::SharedJobs;
 use std::fs::{File, OpenOptions};
 use std::process::{Command, Stdio};
 
@@ -13,7 +14,7 @@ impl Redirects {
     pub fn redirect(
         &self,
         cmd: &mut Command,
-        jobs: &mut crate::job::Jobs,
+        jobs: &SharedJobs,
         piped_in: bool,
         piped_out: bool,
     ) -> anyhow::Result<Option<Vec<u8>>> {
@@ -89,7 +90,7 @@ impl RedirectsInner {
     fn redirect(
         &self,
         cmd: &mut Command,
-        jobs: &mut crate::job::Jobs,
+        jobs: &SharedJobs,
         piped_in: bool,
         piped_out: bool,
     ) -> anyhow::Result<Option<Vec<u8>>> {

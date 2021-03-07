@@ -7,7 +7,7 @@ pub use external::External;
 pub use redirect::Redirects;
 
 use super::NameSpace;
-use crate::job::Jobs;
+use crate::job::SharedJobs;
 use crate::parse::Command as ParseCmd;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -20,7 +20,7 @@ impl From<ParseCmd> for Command {
 }
 
 impl Command {
-    pub fn eval(&self, jobs: &mut Jobs, ns: &mut NameSpace) -> anyhow::Result<()> {
+    pub fn eval(&self, jobs: &SharedJobs, ns: &mut NameSpace) -> anyhow::Result<()> {
         let kind = BuiltinKind::new(self.0.name.eval(jobs)?);
 
         if let Some(kind) = kind {
@@ -38,7 +38,7 @@ impl Command {
         }
     }
 
-    pub fn output(&self, jobs: &mut Jobs) -> anyhow::Result<String> {
+    pub fn output(&self, jobs: &SharedJobs) -> anyhow::Result<String> {
         self.0.output(jobs)
     }
 }

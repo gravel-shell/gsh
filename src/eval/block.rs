@@ -57,7 +57,7 @@ impl Block {
     fn eval_inner(&self, jobs: &SharedJobs, ns: &mut NameSpace) -> anyhow::Result<State> {
         match self {
             Self::Single(cmd) => {
-                jobs.with(|jobs| cmd.eval(jobs, ns))?;
+                cmd.eval(jobs, ns)?;
                 let stat = jobs.wait_fg()?;
                 if let Some(Status::Exited(code)) = stat {
                     ns.push_var("status", code.to_string());
@@ -81,7 +81,7 @@ impl Block {
             }
             Self::If(cond, first, second) => {
                 let cond = matches!(
-                    cond.eval_shared(jobs)?.to_lowercase().as_str(),
+                    cond.eval(jobs)?.to_lowercase().as_str(),
                     "1" | "y" | "yes" | "true"
                 );
 
@@ -96,11 +96,11 @@ impl Block {
                 Ok(state)
             }
             Self::Case(cond, blocks) => {
-                let cond = cond.eval_shared(jobs)?;
+                let cond = cond.eval(jobs)?;
                 for (pats, block) in blocks.iter() {
                     let pats = pats
                         .iter()
-                        .map(|pat| pat.eval_shared(jobs))
+                        .map(|pat| pat.eval(jobs))
                         .collect::<Result<Vec<_>, _>>()?;
                     if pats.into_iter().any(|pat| pat == cond) {
                         return Ok(block.eval_inner(jobs, ns)?);
@@ -110,7 +110,7 @@ impl Block {
             }
             Self::For(c, iter, block) => {
                 ns.mark();
-                for val in iter.eval_shared(jobs)?.split('\n') {
+                for val in iter.eval(jobs)?.split('\n') {
                     ns.push_var(c, val);
                     let state = block.eval_inner(jobs, ns)?;
                     match state {
@@ -123,7 +123,7 @@ impl Block {
             }
             Self::While(cond, block) => {
                 while matches!(
-                    cond.eval_shared(jobs)?.to_lowercase().as_str(),
+                    cond.eval(jobs)?.to_lowercase().as_str(),
                     "1" | "y" | "yes" | "true"
                 ) {
                     let state = block.eval_inner(jobs, ns)?;

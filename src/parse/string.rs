@@ -40,11 +40,7 @@ impl SpecialStr {
         ))
     }
 
-    pub fn eval_shared(&self, jobs: &crate::job::SharedJobs) -> anyhow::Result<String> {
-        jobs.with(|jobs| self.eval(jobs))
-    }
-
-    pub fn eval(&self, jobs: &mut crate::job::Jobs) -> anyhow::Result<String> {
+    pub fn eval(&self, jobs: &crate::job::SharedJobs) -> anyhow::Result<String> {
         Ok(self
             .0
             .iter()
@@ -56,7 +52,7 @@ impl SpecialStr {
                         .output(jobs)?
                         .trim()
                         .to_string()),
-                    StrKind::Pid(id) => Ok(jobs.get_pid(id)?.to_string()),
+                    StrKind::Pid(id) => Ok(jobs.with(|jobs| jobs.get_pid(id))?.to_string()),
                 }
             })
             .collect::<Result<Vec<_>, _>>()?

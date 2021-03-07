@@ -1,5 +1,5 @@
 use super::NameSpace;
-use crate::job::Jobs;
+use crate::job::SharedJobs;
 use anyhow::Context;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -20,13 +20,13 @@ impl Builtin {
         }
     }
 
-    pub fn eval(&self, jobs: &mut Jobs, ns: &mut NameSpace) -> anyhow::Result<()> {
+    pub fn eval(&self, jobs: &SharedJobs, ns: &mut NameSpace) -> anyhow::Result<()> {
         match self.kind {
             BuiltinKind::Empty => (),
             BuiltinKind::Exit => exit(&self.args)?,
             BuiltinKind::Cd => cd(&self.args)?,
             BuiltinKind::Fg => fg(&self.args, jobs)?,
-            BuiltinKind::Jobs => println!("{:#?}", jobs),
+            BuiltinKind::Jobs => println!("{:#?}", jobs.get()?),
             BuiltinKind::Let => let_(&self.args, ns)?,
             BuiltinKind::Export => export(&self.args, ns)?,
         }
@@ -87,7 +87,7 @@ pub fn cd<T: AsRef<str>, TS: AsRef<[T]>>(args: TS) -> anyhow::Result<()> {
     Ok(())
 }
 
-pub fn fg<T: AsRef<str>, TS: AsRef<[T]>>(args: TS, jobs: &mut Jobs) -> anyhow::Result<()> {
+pub fn fg<T: AsRef<str>, TS: AsRef<[T]>>(args: TS, jobs: &SharedJobs) -> anyhow::Result<()> {
     let args = args.as_ref();
     if args.len() != 1 {
         anyhow::bail!("Unexpected args number.");
@@ -95,12 +95,14 @@ pub fn fg<T: AsRef<str>, TS: AsRef<[T]>>(args: TS, jobs: &mut Jobs) -> anyhow::R
 
     let id = args[0].as_ref();
 
-    let id = jobs
-        .from_pid(id.parse().context("Failed to parse a number.")?)
-        .context("Can't find such a process.")?;
+    jobs.with(|jobs| {
+        let id = jobs
+            .from_pid(id.parse().context("Failed to parse a number.")?)
+            .context("Can't find such a process.")?;
 
-    jobs.to_fg(id)?;
-
+        jobs.to_fg(id)?;
+        Ok(())
+    })?;
     Ok(())
 }
 

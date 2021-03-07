@@ -1,6 +1,6 @@
 use super::Redirects;
 
-use crate::job::Jobs;
+use crate::job::SharedJobs;
 use crate::parse::{Arg, Command as ParseCmd, SpecialStr};
 
 use std::process::{Child, Command, Stdio};
@@ -49,24 +49,26 @@ impl From<ParseCmd> for External {
 }
 
 impl External {
-    pub fn eval(&self, jobs: &mut Jobs) -> anyhow::Result<()> {
+    pub fn eval(&self, jobs: &SharedJobs) -> anyhow::Result<()> {
         let child = self.child(jobs, false)?;
-        if self.bg {
-            let (id, pid) = jobs.new_bg(child.id() as i32)?;
-            println!("Job %{} ({}) has started.", id, pid);
-        } else {
-            jobs.new_fg(child.id() as i32)?;
-        }
-        Ok(())
+        jobs.with(|jobs| {
+            if self.bg {
+                let (id, pid) = jobs.new_bg(child.id() as i32)?;
+                println!("Job %{} ({}) has started.", id, pid);
+            } else {
+                jobs.new_fg(child.id() as i32)?;
+            }
+            Ok(())
+        })
     }
 
-    pub fn output(&self, jobs: &mut Jobs) -> anyhow::Result<String> {
+    pub fn output(&self, jobs: &SharedJobs) -> anyhow::Result<String> {
         let child = self.child(jobs, true)?;
         let output = child.wait_with_output()?;
         Ok(String::from_utf8(output.stdout)?)
     }
 
-    fn child(&self, jobs: &mut Jobs, output: bool) -> anyhow::Result<Child> {
+    fn child(&self, jobs: &SharedJobs, output: bool) -> anyhow::Result<Child> {
         let mut child = Command::new(&self.name.eval(jobs)?);
         child.args(
             &self
@@ -94,7 +96,7 @@ impl External {
         }
     }
 
-    fn pipe_from(&self, other: Child, jobs: &mut Jobs, output: bool) -> anyhow::Result<Child> {
+    fn pipe_from(&self, other: Child, jobs: &SharedJobs, output: bool) -> anyhow::Result<Child> {
         let mut child = Command::new(&self.name.eval(jobs)?);
         child.args(
             &self
