@@ -1,17 +1,43 @@
 use super::Redirects;
 
 use crate::job::SharedJobs;
-use crate::parse::{Arg, Command as ParseCmd, SpecialStr};
+use crate::parse::{Arg as ParseArg, Command as ParseCmd, SpecialStr};
 
 use std::process::{Child, Command, Stdio};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct External {
     pub name: SpecialStr,
-    pub args: Vec<SpecialStr>,
+    pub args: Args,
     pub reds: Redirects,
     pub pipe: Option<Box<External>>,
     pub bg: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Args(Vec<Arg>);
+
+impl Args {
+    pub fn eval(&self, jobs: &SharedJobs) -> anyhow::Result<Vec<String>> {
+        let mut res = Vec::new();
+        for arg in self.0.iter() {
+            match arg {
+                Arg::Normal(s) => res.push(s.eval(jobs)?),
+                Arg::Expand(s) => {
+                    for i in s.eval(jobs)?.split_whitespace() {
+                        res.push(i.to_string());
+                    }
+                }
+            }
+        }
+        Ok(res)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum Arg {
+    Normal(SpecialStr),
+    Expand(SpecialStr),
 }
 
 impl From<ParseCmd> for External {
@@ -27,15 +53,19 @@ impl From<ParseCmd> for External {
         let mut reds = Vec::new();
         for arg in arg_reds {
             match arg {
-                Arg::Arg(s) => {
-                    args.push(s);
+                ParseArg::Arg(s) => {
+                    args.push(Arg::Normal(s));
                 }
-                Arg::Redirect(r) => {
+                ParseArg::ExpandArg(s) => {
+                    args.push(Arg::Expand(s));
+                }
+                ParseArg::Redirect(r) => {
                     reds.push(r);
                 }
             }
         }
 
+        let args = Args(args);
         let reds = Redirects::new(reds);
         let pipe = pipe.map(|pipe| Box::new(Self::from(*pipe)));
         Self {
@@ -70,13 +100,7 @@ impl External {
 
     fn child(&self, jobs: &SharedJobs, output: bool) -> anyhow::Result<Child> {
         let mut child = Command::new(&self.name.eval(jobs)?);
-        child.args(
-            &self
-                .args
-                .iter()
-                .map(|arg| arg.eval(jobs))
-                .collect::<Result<Vec<_>, _>>()?,
-        );
+        child.args(&self.args.eval(jobs)?);
 
         let heredoc = self
             .reds
@@ -98,13 +122,7 @@ impl External {
 
     fn pipe_from(&self, other: Child, jobs: &SharedJobs, output: bool) -> anyhow::Result<Child> {
         let mut child = Command::new(&self.name.eval(jobs)?);
-        child.args(
-            &self
-                .args
-                .iter()
-                .map(|arg| arg.eval(jobs))
-                .collect::<Result<Vec<_>, _>>()?,
-        );
+        child.args(&self.args.eval(jobs)?);
 
         let heredoc = self
             .reds

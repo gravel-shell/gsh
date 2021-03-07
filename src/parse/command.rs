@@ -52,6 +52,7 @@ combine::parser! {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Arg {
+    ExpandArg(SpecialStr),
     Arg(SpecialStr),
     Redirect(Redirect),
 }
@@ -59,6 +60,7 @@ pub enum Arg {
 impl Arg {
     pub fn parse<I: Stream<Token = char>>() -> impl Parser<I, Output = Self> {
         attempt(Redirect::parse().map(|r| Self::Redirect(r)))
+            .or(token('!').with(SpecialStr::parse().map(|s| Self::ExpandArg(s))))
             .or(SpecialStr::parse().map(|s| Self::Arg(s)))
     }
 }

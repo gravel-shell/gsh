@@ -26,11 +26,7 @@ impl Command {
         if let Some(kind) = kind {
             Builtin::new(
                 kind,
-                self.0
-                    .args
-                    .iter()
-                    .map(|arg| arg.eval(jobs))
-                    .collect::<Result<Vec<_>, _>>()?,
+                self.0.args.eval(jobs)?,
             )
             .eval(jobs, ns)
         } else {
