@@ -21,17 +21,22 @@ impl From<ParseCmd> for Command {
 
 impl Command {
     pub fn eval(&self, jobs: &SharedJobs, ns: &mut NameSpace) -> anyhow::Result<()> {
-        let kind = BuiltinKind::new(self.0.name.eval(jobs)?);
+        let name = self.0.name.eval(jobs)?;
+        let proc = ns.get_proc(&name);
+        if let Some(proc) = proc {
+            return proc.eval_with_args(&name, self.0.args.eval(jobs)?, jobs, ns);
+        }
 
+        let kind = BuiltinKind::new(name);
         if let Some(kind) = kind {
-            Builtin::new(
+            return Builtin::new(
                 kind,
                 self.0.args.eval(jobs)?,
             )
-            .eval(jobs, ns)
-        } else {
-            self.0.eval(jobs)
+            .eval(jobs, ns);
         }
+
+        self.0.eval(jobs)
     }
 
     pub fn output(&self, jobs: &SharedJobs) -> anyhow::Result<String> {

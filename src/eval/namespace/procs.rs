@@ -10,7 +10,7 @@ impl Procs {
         self.0.insert(name, block);
     }
 
-    pub fn get<T: AsRef<str>>(&self, name: T) -> Option<&Block> {
-        self.0.get(name.as_ref())
+    pub fn get<T: AsRef<str>>(&self, name: T) -> Option<Block> {
+        self.0.get(name.as_ref()).map(|block| block.clone())
     }
 }

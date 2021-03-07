@@ -25,7 +25,7 @@ impl NameSpace {
         self.procs.push(name, block);
     }
 
-    pub fn get_proc<T: AsRef<str>>(&mut self, name: T) -> Option<&Block> {
+    pub fn get_proc<T: AsRef<str>>(&self, name: T) -> Option<Block> {
         self.procs.get(name)
     }
 
