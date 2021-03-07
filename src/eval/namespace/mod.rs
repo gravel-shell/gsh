@@ -13,6 +13,15 @@ pub struct NameSpace {
 }
 
 impl NameSpace {
+    pub fn set_args<T, U, US>(&mut self, name: T, args: US)
+    where
+        T: AsRef<str>,
+        U: AsRef<str>,
+        US: IntoIterator<Item = U>,
+    {
+        self.vars.set_args(name, args);
+    }
+
     pub fn push_var<T: Into<String>, U: AsRef<str>>(&mut self, key: T, value: U) {
         self.vars.push(key, value);
     }

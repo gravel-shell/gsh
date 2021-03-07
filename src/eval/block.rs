@@ -59,12 +59,7 @@ impl Block {
         ns: &mut NameSpace,
     ) -> anyhow::Result<()> {
         ns.mark();
-        ns.push_var("#", args.len().to_string());
-        ns.push_var("0", name);
-        for (i, arg) in args.iter().enumerate() {
-            ns.push_var((i+1).to_string(), arg);
-        }
-        ns.push_var("@", args.join(" "));
+        ns.set_args(name, args);
         self.eval(jobs, ns)?;
         ns.drop();
         Ok(())

@@ -2,7 +2,7 @@ extern crate rustyline;
 extern crate signal_hook;
 
 use crate::job::SharedJobs;
-use crate::session::{MoreLine, Reader};
+use crate::session::Reader;
 use anyhow::Context;
 use rustyline::{error::ReadlineError, Editor};
 use signal_hook::consts::signal;
@@ -13,26 +13,31 @@ use std::thread;
 pub struct PromptReader(Editor<()>);
 
 impl Reader for PromptReader {
-    fn init(jobs: &SharedJobs) -> anyhow::Result<Self> {
-        sighook(jobs)?;
-        Ok(Self(Editor::<()>::new()))
+    fn init(&mut self, jobs: &SharedJobs) -> anyhow::Result<()> {
+        sighook(jobs)
     }
 
-    fn next_line(&mut self) -> anyhow::Result<String> {
+    fn next_line(&mut self) -> anyhow::Result<Option<String>> {
         match self.0.readline("$ ") {
-            Ok(s) => Ok(s),
-            Err(ReadlineError::Interrupted) => Ok(String::new()),
-            Err(ReadlineError::Eof) => Ok(String::from("exit")),
+            Ok(s) => Ok(Some(s)),
+            Err(ReadlineError::Interrupted) => Ok(Some(String::new())),
+            Err(ReadlineError::Eof) => Ok(None),
             Err(e) => Err(e)?,
         }
     }
 
-    fn more_line(&mut self) -> anyhow::Result<MoreLine> {
+    fn more_line(&mut self) -> anyhow::Result<Option<String>> {
         match self.0.readline("... ") {
-            Ok(s) => Ok(MoreLine::Get(s)),
-            Err(ReadlineError::Eof) => Ok(MoreLine::Eof),
+            Ok(s) => Ok(Some(s)),
+            Err(ReadlineError::Eof) => Ok(None),
             Err(e) => Err(e)?,
         }
+    }
+}
+
+impl PromptReader {
+    pub fn new() -> Self {
+        Self(Editor::new())
     }
 }
 
