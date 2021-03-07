@@ -29,6 +29,7 @@ impl Builtin {
             BuiltinKind::Jobs => println!("{:#?}", jobs.get()?),
             BuiltinKind::Let => let_(&self.args, ns)?,
             BuiltinKind::Export => export(&self.args, ns)?,
+            BuiltinKind::Source => source(&self.args, ns)?,
         }
 
         Ok(())
@@ -44,6 +45,7 @@ pub enum BuiltinKind {
     Jobs,
     Let,
     Export,
+    Source,
 }
 
 impl BuiltinKind {
@@ -56,6 +58,7 @@ impl BuiltinKind {
             "jobs" => Self::Jobs,
             "let" => Self::Let,
             "export" => Self::Export,
+            "source" => Self::Source,
             _ => return None,
         })
     }
@@ -131,5 +134,9 @@ pub fn export<T: AsRef<str>, TS: AsRef<[T]>>(args: TS, ns: &mut NameSpace) -> an
     }
 
     ns.push_gvar(args[0].as_ref(), args[2].as_ref());
+    Ok(())
+}
+
+pub fn source<T: AsRef<str>, TS: AsRef<[T]>>(args: TS, ns: &mut NameSpace) -> anyhow::Result<()> {
     Ok(())
 }

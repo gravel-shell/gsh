@@ -6,8 +6,9 @@ mod parse;
 mod session;
 
 fn inner_main() -> anyhow::Result<()> {
+    let mut namespace = eval::NameSpace::default();
     let mut session = session::Session::new(session::PromptReader::new())?;
-    session.all()
+    session.all(&mut namespace)
 }
 
 fn main() {

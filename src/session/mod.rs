@@ -9,7 +9,6 @@ use crate::parse::{parse_line, Parsed};
 pub struct Session<T> {
     reader: T,
     jobs: SharedJobs,
-    namespace: NameSpace,
 }
 
 pub trait Reader: Sized {
@@ -27,11 +26,10 @@ impl<T: Reader> Session<T> {
         Ok(Self {
             reader,
             jobs,
-            namespace: NameSpace::default(),
         })
     }
 
-    pub fn next(&mut self) -> anyhow::Result<bool> {
+    pub fn next(&mut self, namespace: &mut NameSpace) -> anyhow::Result<bool> {
         let mut line = match self.reader.next_line() {
             Ok(Some(s)) => s,
             Ok(None) => return Ok(false),
@@ -67,7 +65,7 @@ impl<T: Reader> Session<T> {
         eprintln!("{:?}", line);
         let block = Block::from(line);
 
-        match block.eval(&self.jobs, &mut self.namespace) {
+        match block.eval(&self.jobs, namespace) {
             Ok(_) => (),
             Err(e) => {
                 eprintln!("{}", e);
@@ -78,9 +76,9 @@ impl<T: Reader> Session<T> {
         Ok(true)
     }
 
-    pub fn all(&mut self) -> anyhow::Result<()> {
+    pub fn all(&mut self, namespace: &mut NameSpace) -> anyhow::Result<()> {
         loop {
-            if !self.next()? {
+            if !self.next(namespace)? {
                 break;
             }
         }
@@ -88,50 +86,16 @@ impl<T: Reader> Session<T> {
         Ok(())
     }
 
-    pub fn source<R: Reader>(&mut self, mut reader: R) -> anyhow::Result<()> {
-        reader.init(&self.jobs)?;
-        let mut session = Session::<R> {
-            reader,
-            jobs: self.jobs.clone(),
-            namespace: self.namespace.clone(),
-        };
-        session.all()?;
-        self.namespace = session.namespace;
-        Ok(())
-    }
-
-    pub fn source_with_args<R: Reader, N, A, AS>(
-        &mut self,
-        mut reader: R,
-        name: N,
-        args: AS,
-    ) -> anyhow::Result<()>
+    pub fn all_with_args<N, A, AS>(&mut self, namespace: &mut NameSpace, name: N, args: AS) -> anyhow::Result<()>
     where
         N: AsRef<str>,
         A: AsRef<str>,
         AS: IntoIterator<Item = A>,
     {
-        reader.init(&self.jobs)?;
-        let mut session = Session::<R> {
-            reader,
-            jobs: self.jobs.clone(),
-            namespace: self.namespace.clone(),
-        };
-        session.all_with_args(name, args)?;
-        self.namespace = session.namespace;
-        Ok(())
-    }
-
-    pub fn all_with_args<N, A, AS>(&mut self, name: N, args: AS) -> anyhow::Result<()>
-    where
-        N: AsRef<str>,
-        A: AsRef<str>,
-        AS: IntoIterator<Item = A>,
-    {
-        self.namespace.mark();
-        self.namespace.set_args(name, args);
-        self.all()?;
-        self.namespace.drop();
+        namespace.mark();
+        namespace.set_args(name, args);
+        self.all(namespace)?;
+        namespace.drop();
         Ok(())
     }
 }
