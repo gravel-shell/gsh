@@ -1,8 +1,8 @@
-mod prompt;
 mod io;
+mod prompt;
 
-pub use prompt::PromptReader;
 pub use io::IOReader;
+pub use prompt::PromptReader;
 
 use crate::eval::{Block, NameSpace};
 use crate::job::SharedJobs;
@@ -28,10 +28,7 @@ impl<T: Reader> Session<T> {
     pub fn new(mut reader: T) -> anyhow::Result<Self> {
         let jobs = SharedJobs::new();
         reader.init(&jobs)?;
-        Ok(Self {
-            reader,
-            jobs,
-        })
+        Ok(Self { reader, jobs })
     }
 
     pub fn next(&mut self, namespace: &mut NameSpace) -> anyhow::Result<bool> {
@@ -91,7 +88,12 @@ impl<T: Reader> Session<T> {
         Ok(())
     }
 
-    pub fn all_with_args<N, A, AS>(&mut self, namespace: &mut NameSpace, name: N, args: AS) -> anyhow::Result<()>
+    pub fn all_with_args<N, A, AS>(
+        &mut self,
+        namespace: &mut NameSpace,
+        name: N,
+        args: AS,
+    ) -> anyhow::Result<()>
     where
         N: AsRef<str>,
         A: AsRef<str>,

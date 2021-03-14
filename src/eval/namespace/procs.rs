@@ -11,6 +11,6 @@ impl Procs {
     }
 
     pub fn get<T: AsRef<str>>(&self, name: T) -> Option<Block> {
-        self.0.get(name.as_ref()).map(|block| block.clone())
+        self.0.get(name.as_ref()).cloned()
     }
 }

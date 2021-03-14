@@ -103,7 +103,7 @@ pub fn fg<T: AsRef<str>, TS: AsRef<[T]>>(args: TS, jobs: &SharedJobs) -> anyhow:
             .from_pid(id.parse().context("Failed to parse a number.")?)
             .context("Can't find such a process.")?;
 
-        jobs.to_fg(id)?;
+        jobs.move_to_fg(id)?;
         Ok(())
     })?;
     Ok(())
@@ -138,7 +138,7 @@ pub fn export<T: AsRef<str>, TS: AsRef<[T]>>(args: TS, ns: &mut NameSpace) -> an
 }
 
 pub fn source<T: AsRef<str>, TS: AsRef<[T]>>(args: TS, ns: &mut NameSpace) -> anyhow::Result<()> {
-    use crate::session::{Session, IOReader};
+    use crate::session::{IOReader, Session};
 
     let mut args = args.as_ref().iter();
     let name = args.next().context("Specify the file to run.")?;

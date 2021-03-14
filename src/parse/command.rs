@@ -35,7 +35,7 @@ impl Command {
                 .map(|(name, args, pipe, bg)| Self {
                     name,
                     args,
-                    pipe: pipe.map(|c| Box::new(c)),
+                    pipe: pipe.map(Box::new),
                     bg: bg.is_some(),
                 })),
         )
@@ -59,8 +59,8 @@ pub enum Arg {
 
 impl Arg {
     pub fn parse<I: Stream<Token = char>>() -> impl Parser<I, Output = Self> {
-        attempt(Redirect::parse().map(|r| Self::Redirect(r)))
-            .or(token('!').with(SpecialStr::parse().map(|s| Self::ExpandArg(s))))
-            .or(SpecialStr::parse().map(|s| Self::Arg(s)))
+        attempt(Redirect::parse().map(Self::Redirect))
+            .or(token('!').with(SpecialStr::parse().map(Self::ExpandArg)))
+            .or(SpecialStr::parse().map(Self::Arg))
     }
 }

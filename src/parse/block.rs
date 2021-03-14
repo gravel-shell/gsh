@@ -31,8 +31,8 @@ impl Block {
             for_().map(|(c, iter, block)| Self::For(c, iter, block)),
             case().map(|(cond, blocks)| Self::Case(cond, blocks)),
             if_().map(|(cond, first, second)| Self::If(cond, first, second)),
-            multi().map(|lines| Self::Multi(lines)),
-            Command::parse().map(|cmd| Self::Single(cmd)),
+            multi().map(Self::Multi),
+            Command::parse().map(Self::Single),
         )))
     }
 }
@@ -62,13 +62,13 @@ fn if_<I: Stream<Token = char>>(
         spaces_line(),
         SpecialStr::parse(),
         spaces_line(),
-        Block::parse().map(|line| Box::new(line)),
+        Block::parse().map(Box::new),
         spaces_line(),
         optional(
             (
                 char::string("else"),
                 spaces_line(),
-                Block::parse().map(|line| Box::new(line)),
+                Block::parse().map(Box::new),
             )
                 .map(|(_, _, line)| line),
         ),
@@ -113,7 +113,7 @@ fn for_<I: Stream<Token = char>>() -> impl Parser<I, Output = (String, SpecialSt
         spaces_line(),
         SpecialStr::parse(),
         spaces_line(),
-        Block::parse().map(|line| Box::new(line)),
+        Block::parse().map(Box::new),
     )
         .map(|(_, _, c, _, _, _, iter, _, block)| (c, iter, block))
 }
@@ -124,7 +124,7 @@ fn while_<I: Stream<Token = char>>() -> impl Parser<I, Output = (SpecialStr, Box
         spaces_line(),
         SpecialStr::parse(),
         spaces_line(),
-        Block::parse().map(|line| Box::new(line)),
+        Block::parse().map(Box::new),
     )
         .map(|(_, _, cond, _, block)| (cond, block))
 }

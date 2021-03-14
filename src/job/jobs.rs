@@ -164,7 +164,7 @@ impl Jobs {
     pub fn interrupt(&mut self, id: usize) -> anyhow::Result<Option<Status>> {
         let proc = self.0.remove(&id);
         if let Some(proc) = proc {
-            proc.interrupt().map(|s| Some(s))
+            proc.interrupt().map(Some)
         } else {
             Ok(None)
         }
@@ -180,7 +180,7 @@ impl Jobs {
         Ok(())
     }
 
-    pub fn to_fg(&mut self, id: usize) -> anyhow::Result<()> {
+    pub fn move_to_fg(&mut self, id: usize) -> anyhow::Result<()> {
         if id == 0 {
             return Ok(());
         }
@@ -203,7 +203,10 @@ impl Jobs {
     }
 
     pub fn get_pid(&self, id: &usize) -> anyhow::Result<i32> {
-        let proc = self.0.get(id).context("Failed to get the process number.")?;
+        let proc = self
+            .0
+            .get(id)
+            .context("Failed to get the process number.")?;
         Ok((*proc).into())
     }
 

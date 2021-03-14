@@ -1,8 +1,8 @@
 extern crate rustyline;
 extern crate signal_hook;
 
-use crate::job::SharedJobs;
 use super::Reader;
+use crate::job::SharedJobs;
 use anyhow::Context;
 use rustyline::{error::ReadlineError, Editor};
 use signal_hook::consts::signal;
@@ -22,7 +22,7 @@ impl Reader for PromptReader {
             Ok(s) => Ok(Some(s)),
             Err(ReadlineError::Interrupted) => Ok(Some(String::new())),
             Err(ReadlineError::Eof) => Ok(None),
-            Err(e) => Err(e)?,
+            Err(e) => Err(e.into()),
         }
     }
 
@@ -30,7 +30,7 @@ impl Reader for PromptReader {
         match self.0.readline("... ") {
             Ok(s) => Ok(Some(s)),
             Err(ReadlineError::Eof) => Ok(None),
-            Err(e) => Err(e)?,
+            Err(e) => Err(e.into()),
         }
     }
 }

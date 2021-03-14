@@ -37,7 +37,7 @@ impl RedTarget {
                 '!' => Self::Null,
                 _ => unreachable!(),
             })
-            .or(SpecialStr::parse().map(|s| Self::Other(s)))
+            .or(SpecialStr::parse().map(Self::Other))
     }
 }
 

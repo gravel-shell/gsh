@@ -1,7 +1,7 @@
 use super::Reader;
+use std::fs::File;
 use std::io::{BufRead, BufReader, Lines};
 use std::path::Path;
-use std::fs::File;
 
 pub struct IOReader<R>(Lines<R>);
 
@@ -9,7 +9,7 @@ impl<R: BufRead> Reader for IOReader<R> {
     fn next_line(&mut self) -> anyhow::Result<Option<String>> {
         match self.0.next() {
             Some(line) => Ok(Some(line?)),
-            None => Ok(None)
+            None => Ok(None),
         }
     }
 }

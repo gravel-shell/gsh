@@ -1,8 +1,8 @@
-mod vars;
 mod procs;
+mod vars;
 
-use vars::Vars;
 use procs::Procs;
+use vars::Vars;
 
 use crate::eval::Block;
 

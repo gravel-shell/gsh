@@ -1,5 +1,5 @@
-use crate::parse::{RedKind, RedTarget, Redirect, SpecialStr};
 use crate::job::SharedJobs;
+use crate::parse::{RedKind, RedTarget, Redirect, SpecialStr};
 use std::fs::{File, OpenOptions};
 use std::process::{Command, Stdio};
 

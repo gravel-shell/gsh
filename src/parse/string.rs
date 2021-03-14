@@ -32,7 +32,7 @@ impl SpecialStr {
 
     pub fn parse<I: Stream<Token = char>>() -> impl Parser<I, Output = Self> {
         choice((
-            attempt(raw_unindent()).map(|s| Self::from(s)),
+            attempt(raw_unindent()).map(Self::from),
             raw_str().map(|s| Self(vec![StrKind::String(s)])),
             attempt(lit_unindent()),
             lit(),
@@ -62,12 +62,12 @@ impl SpecialStr {
 
 fn direct<I: Stream<Token = char>>() -> impl Parser<I, Output = SpecialStr> {
     many1(choice((
-        command().map(|c| StrKind::Cmd(c)),
-        env().map(|s| StrKind::Var(s)),
-        pid().map(|i| StrKind::Pid(i)),
-        direct_str().map(|s| StrKind::String(s)),
+        command().map(StrKind::Cmd),
+        env().map(StrKind::Var),
+        pid().map(StrKind::Pid),
+        direct_str().map(StrKind::String),
     )))
-    .map(|strs| SpecialStr(strs))
+    .map(SpecialStr)
 }
 
 fn direct_str<I: Stream<Token = char>>() -> impl Parser<I, Output = String> {
@@ -87,8 +87,7 @@ fn lit_unindent<I: Stream<Token = char>>() -> impl Parser<I, Output = SpecialStr
                 Ok((special, _)) => Ok((special, commited)),
                 Err(_) => Err(combine::error::Commit::Peek(combine::error::Tracked::from(
                     I::Error::empty(input.position()),
-                ))
-                .into()),
+                ))),
             }
         }))
         .skip(char::string("\"\"\""))
@@ -104,8 +103,7 @@ fn lit<I: Stream<Token = char>>() -> impl Parser<I, Output = SpecialStr> {
                 Ok((special, _)) => Ok((special, commited)),
                 Err(_) => Err(combine::error::Commit::Peek(combine::error::Tracked::from(
                     I::Error::empty(input.position()),
-                ))
-                .into()),
+                ))),
             }
         }))
         .skip(token('"'))
@@ -129,9 +127,9 @@ fn lit_reparse<I: Stream<Token = char>>() -> impl Parser<I, Output = SpecialStr>
     use std::convert::TryFrom;
 
     many1(choice((
-        command().map(|c| StrKind::Cmd(c)),
-        env().map(|s| StrKind::Var(s)),
-        pid().map(|i| StrKind::Pid(i)),
+        command().map(StrKind::Cmd),
+        env().map(StrKind::Var),
+        pid().map(StrKind::Pid),
         many1(satisfy(|c| c != '$' && c != '(').then(|c| {
             if c == '\\' {
                 choice((
@@ -165,9 +163,9 @@ fn lit_reparse<I: Stream<Token = char>>() -> impl Parser<I, Output = SpecialStr>
                 value(c).right()
             }
         }))
-        .map(|s| StrKind::String(s)),
+        .map(StrKind::String),
     )))
-    .map(|strs| SpecialStr(strs))
+    .map(SpecialStr)
 }
 
 fn raw_unindent<I: Stream<Token = char>>() -> impl Parser<I, Output = String> {

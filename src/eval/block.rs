@@ -25,9 +25,7 @@ enum State {
 impl From<ParseBlk> for Block {
     fn from(block: ParseBlk) -> Self {
         match block {
-            ParseBlk::Multi(blocks) => {
-                Self::Multi(blocks.into_iter().map(|block| Self::from(block)).collect())
-            }
+            ParseBlk::Multi(blocks) => Self::Multi(blocks.into_iter().map(Self::from).collect()),
             ParseBlk::Single(cmd) => Self::Single(Command::from(cmd)),
             ParseBlk::If(cond, first, second) => Self::If(
                 cond,

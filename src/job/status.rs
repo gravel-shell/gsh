@@ -18,26 +18,20 @@ impl fmt::Display for Status {
 
 impl Status {
     pub fn stopped(&self) -> bool {
-        match self {
+        matches!(
+            self,
             Self::Signaled(Signal::SIGSTOP)
-            | Self::Signaled(Signal::SIGTSTP)
-            | Self::Signaled(Signal::SIGTTIN)
-            | Self::Signaled(Signal::SIGTTOU) => true,
-            _ => false,
-        }
+                | Self::Signaled(Signal::SIGTSTP)
+                | Self::Signaled(Signal::SIGTTIN)
+                | Self::Signaled(Signal::SIGTTOU)
+        )
     }
 
     pub fn interrupted(&self) -> bool {
-        match self {
-            Self::Signaled(Signal::SIGINT) => true,
-            _ => false,
-        }
+        matches!(self, Self::Signaled(Signal::SIGINT))
     }
 
     pub fn continued(&self) -> bool {
-        match self {
-            Self::Signaled(Signal::SIGCONT) => true,
-            _ => false,
-        }
+        matches!(self, Self::Signaled(Signal::SIGCONT))
     }
 }

@@ -29,11 +29,7 @@ impl Command {
 
         let kind = BuiltinKind::new(name);
         if let Some(kind) = kind {
-            return Builtin::new(
-                kind,
-                self.0.args.eval(jobs)?,
-            )
-            .eval(jobs, ns);
+            return Builtin::new(kind, self.0.args.eval(jobs)?).eval(jobs, ns);
         }
 
         self.0.eval(jobs)
