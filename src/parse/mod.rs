@@ -13,6 +13,7 @@ pub use string::SpecialStr;
 
 use chars::{spaces, spaces_line};
 use combine::{EasyParser, ParseError};
+use combine::stream::position::Stream;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Parsed {
@@ -21,8 +22,8 @@ pub enum Parsed {
 }
 
 pub fn parse_line(input: &str) -> anyhow::Result<Parsed> {
-    Ok(match Block::parse().easy_parse(input) {
-        Ok((res, rem)) if rem.is_empty() => Parsed::Complete(res),
+    Ok(match Block::parse().easy_parse(Stream::new(input)) {
+        Ok((res, rem)) if rem.input.is_empty() => Parsed::Complete(res),
         Ok(_) => anyhow::bail!("Unread characters are remain."),
         Err(e) if e.is_unexpected_end_of_input() => Parsed::Yet,
         Err(e) => anyhow::bail!(e.to_string()),
