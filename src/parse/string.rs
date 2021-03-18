@@ -186,9 +186,13 @@ fn raw_str<I: Stream<Token = char>>() -> impl Parser<I, Output = String> {
 }
 
 fn env<I: Stream<Token = char>>() -> impl Parser<I, Output = String> {
-    token('$')
-        .with(many1(satisfy(|c| c != ';')))
-        .skip(token(';'))
+    token('$').with(
+        token('{')
+            .with(many1(satisfy(|c| c != '}')).skip(token('}')))
+            .or(many1(satisfy(|c: char| {
+                !c.is_whitespace() && c != '"' && c != '\'' && c != ')'
+            }))),
+    )
 }
 
 fn command<I: Stream<Token = char>>() -> impl Parser<I, Output = Command> {
